@@ -285,6 +285,30 @@ function clipVisible(model: Model, c: Clip): boolean {
   return true;
 }
 
+/// Every space-separated term of folded `n` is a substring of folded `h`.
+/// Clip text is long, so a subsequence match would hit almost anything
+/// ("clip one" would match a 240-byte preview that never says it).
+function hasAllTerms(h: Uint8Array, n: Uint8Array): boolean {
+  let start = 0;
+  while (start < n.length) {
+    let end = start;
+    while (end < n.length && n[end] !== 32) end += 1;
+    if (end > start) {
+      const term = n.subarray(start, end);
+      let found = false;
+      for (let i = 0; i + term.length <= h.length; i++) {
+        if (matchesAt(h, term, i)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) return false;
+    }
+    start = end + 1;
+  }
+  return true;
+}
+
 function clipboardHits(model: Model): Hit[] {
   const q = queryOf(model);
   const n = foldText(q);
@@ -295,8 +319,7 @@ function clipboardHits(model: Model): Hit[] {
       if (out.length >= MAX_RESULTS) break;
       if (c.pinned !== (pass === 0) || !clipVisible(model, c)) continue;
       const title = clipTitle(c);
-      const s = n.length === 0 ? 1 : scoreFolded(foldText(title), n, n.length >= 3);
-      if (s > 0) out.push({ kind: "clip", refId: c.id, title: title, subtitle: c.sourceBundle, score: s });
+      if (n.length === 0 || hasAllTerms(foldText(title), n)) out.push({ kind: "clip", refId: c.id, title: title, subtitle: c.sourceBundle, score: 1 });
     }
   }
   return out;
