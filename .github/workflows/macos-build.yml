@@ -1,0 +1,137 @@
+name: macOS test build
+
+# Personal test build only: produces an ad-hoc signed Apple Silicon Bettercast.app.
+# No signing secrets, notarization, release, appcast, or upload outside Actions artifacts.
+on:
+  push:
+    branches: [bettercast-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Bettercast.app (arm64, ad-hoc)
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      # Never try to launch Metro during the Xcode build.
+      RCT_NO_LAUNCH_PACKAGER: "1"
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+      OUT_DIR: ${{ github.workspace }}/build/out
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Runner and toolchain info
+        run: |
+          uname -m
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i macosx
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Source checks
+        run: |
+          bun run typecheck
+          bun test ./src/lib/foundation.test.js ./src/stores/snippet-persistence.test.js
+          swiftc macos/sol-macOS/lib/AIProcess.swift scripts/test-ai-process.swift -o "$RUNNER_TEMP/test-ai-process"
+          "$RUNNER_TEMP/test-ai-process"
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            macos/Pods
+            ~/Library/Caches/CocoaPods
+          key: pods-${{ runner.os }}-${{ runner.arch }}-xcode16.4-${{ hashFiles('macos/Podfile.lock', 'bun.lock', 'patches/**') }}
+
+      - name: Install pods
+        working-directory: macos
+        run: bundle exec pod install
+
+      - name: Build (Release, arm64, ad-hoc signed)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace macos/sol.xcworkspace \
+            -scheme release \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGN_IDENTITY=- \
+            'CODE_SIGN_IDENTITY[sdk=macosx*]=-' \
+            PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_HARDENED_RUNTIME=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*(sign|bundle)|\*\* BUILD|^Ld |CodeSign |PhaseScript" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Package and inspect
+        run: |
+          set -euo pipefail
+          src="$DERIVED_DATA/Build/Products/Release/bettercast.app"
+          test -d "$src"
+          mkdir -p "$OUT_DIR"
+          ditto "$src" "$OUT_DIR/Bettercast.app"
+          app="$OUT_DIR/Bettercast.app"
+          exe="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+          echo "== Info.plist"; plutil -p "$app/Contents/Info.plist" | grep -E "CFBundle(Identifier|Executable|ShortVersionString|Version)|LSMinimumSystemVersion"
+          echo "== executable"; file "$exe"; lipo -archs "$exe"
+          lipo -archs "$exe" | grep -qx arm64
+          echo "== embedded JS bundle"; ls -l "$app/Contents/Resources/main.jsbundle"; file "$app/Contents/Resources/main.jsbundle"
+          echo "== resources"; ls "$app/Contents/Resources" | head -50
+          echo "== frameworks"; ls "$app/Contents/Frameworks" || true
+          echo "== linked libraries"; otool -L "$exe"
+          if otool -L "$exe" | grep -E "DerivedData|/Users/runner"; then echo "absolute build path linked"; exit 1; fi
+          echo "== signature"; codesign -dv --verbose=2 "$app" 2>&1
+          codesign --verify --deep --strict --verbose=2 "$app"
+          echo "== entitlements"; codesign -d --entitlements - "$app" 2>&1 || true
+          cd "$OUT_DIR"
+          ditto -c -k --sequesterRsrc --keepParent Bettercast.app Bettercast-arm64-adhoc.zip
+          shasum -a 256 Bettercast-arm64-adhoc.zip | tee Bettercast-arm64-adhoc.zip.sha256
+          echo "## Bettercast.app (arm64, ad-hoc)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat Bettercast-arm64-adhoc.zip.sha256 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bettercast-arm64-adhoc
+          path: |
+            build/out/Bettercast-arm64-adhoc.zip
+            build/out/Bettercast-arm64-adhoc.zip.sha256
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore
