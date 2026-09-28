@@ -1,0 +1,12 @@
+.native/
+zig-out/
+.zig-cache/
+node_modules/
+# helper binary (built by scripts/build-helper.sh; packaged from assets/bin)
+assets/bin/
+# headless harness build outputs (build.zig.zon is written by scripts/harness-test.sh)
+harness/.zig-cache/
+harness/zig-out/
+harness/build.zig.zon
+# automation / e2e artifacts
+e2e-out/

@@ -1,0 +1,29 @@
+# forgiving calculator: Return on the top row copies the result (dry-run in test mode)
+"notice":{"$bytes":"seeded"}
+"notice":{"$bytes":"dry-run: copy 48"}
+"notice":{"$bytes":"dry-run: copy 1024"}
+"notice":{"$bytes":"dry-run: copy 12"}
+"notice":{"$bytes":"dry-run: copy 7"}
+"notice":{"$bytes":"dry-run: copy 3"}
+"notice":{"$bytes":"dry-run: copy 1001"}
+"notice":{"$bytes":"dry-run: copy 14"}
+"notice":{"$bytes":"dry-run: copy -9"}
+"notice":{"$bytes":"dry-run: copy 0.5"}
+"notice":{"$bytes":"dry-run: copy 2.5"}
+"notice":{"$bytes":"dry-run: copy 0.3"}
+"notice":{"$bytes":"dry-run: copy 92"}
+"notice":{"$bytes":"dry-run: copy 12"}
+"notice":{"$bytes":"dry-run: copy 3.5"}
+"notice":{"$bytes":"dry-run: copy 0.3333333333"}
+"notice":{"$bytes":"dry-run: copy 1.844674407e+19"}
+"notice":{"$bytes":"dry-run: copy 21"}
+"notice":{"$bytes":"dry-run: copy 250000"}
+"notice":{"$bytes":"dry-run: copy 8"}
+"notice":{"$bytes":"dry-run: copy -10"}
+!"notice":{"$bytes":"dry-run: copy 42"}
+!"notice":{"$bytes":"dry-run: copy -5"}
+!"notice":{"$bytes":"dry-run: copy fix"}
+!"notice":{"$bytes":"dry-run: copy Infinity"}
+!"notice":{"$bytes":"dry-run: copy NaN"}
+!"notice":{"$bytes":"dry-run: copy 3 apples"}
+!"notice":{"$bytes":"dry-run: copy 1.2.3"}

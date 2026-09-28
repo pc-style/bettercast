@@ -1,0 +1,189 @@
+<!-- Manage window ("manage"): editing and settings in a normal titled
+     window, reachable from the panel (Cmd+, / "Manage…"), and the menu-bar
+     item (Manage Snippets…, Settings…). Sidebar = a tree of section rows
+     (one Tab stop; Up/Down switch sections). Every control carries an
+     accessible name; destructive actions go through the confirm dialog. -->
+<row grow="1" background="background">
+  <column width="190" padding="10" gap="4" background="surface_subtle">
+    <tree gap="2" label="Settings sections">
+      <for each="manageTabs" as="t" key="tab">
+        <list-item role="treeitem" icon="{t.icon}" selected="{t.selected}" on-press="manage_tab:{t.tab}">{t.title}</list-item>
+      </for>
+    </tree>
+  </column>
+  <separator />
+  <column grow="1">
+    <scroll grow="1" label="Settings">
+      <column padding="20" gap="16">
+        <if test="{tabIsSnippets}">
+          <row gap="8" cross="center">
+            <text grow="1" size="heading">Snippets</text>
+            <button variant="primary" icon="plus" on-press="snippet_new">New Snippet</button>
+          </row>
+          <text wrap="true" foreground="text_muted">Type a snippet's name or keyword in Bettercast and press Return to paste it into the app you were using.</text>
+          <row gap="16" cross="start">
+            <column width="200" gap="6">
+              <if test="{hasSnippets}">
+                <list gap="2" label="Snippets">
+                  <for each="snippetRows" as="s" key="id">
+                    <list-item selected="{s.selected}" label="{s.a11y}" on-press="snippet_edit:{s.id}">
+                      <column gap="0">
+                        <text>{s.name}</text>
+                        <text foreground="text_muted">{s.keyword}</text>
+                      </column>
+                    </list-item>
+                  </for>
+                </list>
+              </if>
+              <else>
+                <text wrap="true" foreground="text_muted">No snippets yet.</text>
+              </else>
+            </column>
+            <column grow="1" gap="12">
+              <if test="{hasDraft}">
+                <text><span weight="bold">{draftTitle}</span></text>
+                <column gap="4">
+                  <text>Name</text>
+                  <text-field label="Name" placeholder="Email sign-off" text="{draftName}" autofocus="{draftIsNew}" on-input="draft_name" on-submit="draft_save" />
+                </column>
+                <column gap="4">
+                  <text>Keyword</text>
+                  <text-field label="Keyword" placeholder="Optional, for example sig" text="{draftKeyword}" on-input="draft_keyword" on-submit="draft_save" />
+                </column>
+                <column gap="4">
+                  <text>Text</text>
+                  <textarea label="Text" placeholder="The text Bettercast pastes" height="160" text="{draftBody}" on-input="draft_body" on-submit="draft_save" />
+                  <text foreground="text_muted">Cmd+Return saves.</text>
+                </column>
+                <if test="{hasDraftError}">
+                  <text wrap="true" foreground="destructive_text">{draftError}</text>
+                </if>
+                <row gap="8" cross="center">
+                  <button variant="primary" on-press="draft_save">Save</button>
+                  <button variant="outline" on-press="draft_cancel">Cancel</button>
+                  <spacer grow="1" />
+                  <if test="{draftIsSaved}">
+                    <button variant="destructive" on-press="confirm_snippet_delete:{draftId}">Delete…</button>
+                  </if>
+                </row>
+              </if>
+              <else>
+                <text wrap="true" foreground="text_muted">Select a snippet to edit it, or press New Snippet.</text>
+              </else>
+            </column>
+          </row>
+        </if>
+        <if test="{tabIsClipboard}">
+          <text size="heading">Clipboard</text>
+          <text wrap="true" foreground="text_muted">Bettercast keeps the text and images you copy. Items that password managers mark as concealed or transient are never saved. Each image is stored once as a compressed PNG.</text>
+          <switch checked="{recordImages}" on-toggle="toggle_record_images">Keep images</switch>
+          <column gap="6">
+            <text>Keep clips for</text>
+            <toggle-group gap="2" label="Keep clips for">
+              <for each="retentionChoices" as="c" key="value">
+                <toggle-button size="sm" selected="{c.selected}" on-toggle="set_retention_days:{c.value}">{c.title}</toggle-button>
+              </for>
+            </toggle-group>
+          </column>
+          <column gap="6">
+            <text>Keep at most</text>
+            <toggle-group gap="2" label="Keep at most this many clips">
+              <for each="maxItemChoices" as="c" key="value">
+                <toggle-button size="sm" selected="{c.selected}" on-toggle="set_max_items:{c.value}">{c.title}</toggle-button>
+              </for>
+            </toggle-group>
+          </column>
+          <text foreground="text_muted">{retentionLine}</text>
+          <row gap="8">
+            <button variant="destructive" on-press="confirm_clear_history">Clear History…</button>
+          </row>
+        </if>
+        <if test="{tabIsShortcuts}">
+          <text size="heading">Shortcuts</text>
+          <text wrap="true" foreground="text_muted">These work in every app. Press Record, then the new keys with Cmd, Opt, or Ctrl. Esc cancels. Bettercast never changes other apps' shortcuts.</text>
+          <for each="hotkeyRows" as="h" key="action">
+            <row gap="10" cross="center">
+              <text width="170">{h.title}</text>
+              <if test="{h.capturing}">
+                <text grow="1" foreground="accent">{h.chord}</text>
+              </if>
+              <else>
+                <text grow="1" foreground="text_muted">{h.chord}</text>
+              </else>
+              <button size="sm" variant="outline" label="{h.recordLabel}" on-press="hotkey_capture:{h.action}">{h.recordText}</button>
+              <button size="sm" variant="ghost" label="{h.resetLabel}" on-press="hotkey_reset:{h.action}">Reset</button>
+              <switch size="sm" checked="{h.enabled}" label="{h.enableLabel}" on-toggle="hotkey_toggle:{h.action}">On</switch>
+            </row>
+          </for>
+          <if test="{hasHotkeyNotice}">
+            <text wrap="true" foreground="warning_text">{hotkeyNotice}</text>
+          </if>
+        </if>
+        <if test="{tabIsAi}">
+          <text size="heading">AI</text>
+          <text wrap="true" foreground="text_muted">Ask AI runs an installed command-line assistant read-only with its tools off, or calls an API with your key.</text>
+          <text>Default provider</text>
+          <radio-group label="Default AI provider">
+            <column gap="8">
+              <for each="providerRows" as="p" key="provider">
+                <row gap="10" cross="center">
+                  <radio checked="{p.selected}" disabled="{p.unavailable}" on-change="ai_set_provider:{p.provider}">{p.title}</radio>
+                  <text grow="1" foreground="text_muted">{p.detail}</text>
+                </row>
+              </for>
+            </column>
+          </radio-group>
+          <column gap="6">
+            <text>API key</text>
+            <text wrap="true" foreground="text_muted">{apiKeyStatus}</text>
+            <row gap="8">
+              <button variant="outline" on-press="api_key_from_clipboard">Save API Key from Clipboard</button>
+              <if test="{apiKeySet}">
+                <button variant="ghost" on-press="api_key_delete">Remove API Key</button>
+              </if>
+            </row>
+          </column>
+        </if>
+        <if test="{tabIsGeneral}">
+          <text size="heading">General</text>
+          <column gap="6">
+            <text>Accessibility</text>
+            <text wrap="true" foreground="text_muted">{axStatusLine}</text>
+            <row gap="8">
+              <button variant="outline" on-press="ax_request">Grant Accessibility…</button>
+            </row>
+          </column>
+          <switch checked="{launchAtLogin}" on-toggle="login_toggle">Open Bettercast at login</switch>
+          <column gap="6">
+            <text>Settings file</text>
+            <text wrap="true" foreground="text_muted">Export saves snippets, shortcuts, and settings (never clipboard history or API keys) to bettercast-config.json in the data folder. Import reads the same file.</text>
+            <row gap="8">
+              <button variant="outline" on-press="config_export">Export Settings</button>
+              <button variant="outline" on-press="config_import">Import Settings</button>
+            </row>
+          </column>
+          <text wrap="true" foreground="text_muted">Data folder: {dataDirLine}</text>
+          <text foreground="text_muted">{versionLine}</text>
+        </if>
+      </column>
+    </scroll>
+    <if test="{hasNotice}">
+      <separator />
+      <row padding="8" gap="8" cross="center">
+        <text grow="1" foreground="text_muted">{notice}</text>
+        <button size="sm" variant="ghost" on-press="notice_clear">Dismiss</button>
+      </row>
+    </if>
+  </column>
+  <if test="{confirmInManage}">
+    <dialog text="{confirmTitle}" on-dismiss="confirm_cancel">
+      <column gap="12">
+        <text wrap="true">{confirmBody}</text>
+        <row gap="8" main="end">
+          <button variant="outline" on-press="confirm_cancel">Cancel</button>
+          <button variant="destructive" autofocus="true" on-press="confirm_accept">{confirmButton}</button>
+        </row>
+      </column>
+    </dialog>
+  </if>
+</row>

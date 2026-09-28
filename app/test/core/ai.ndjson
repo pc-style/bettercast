@@ -1,0 +1,51 @@
+# boot in BETTERCAST_TEST_MODE=e2e, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "e2e"}}
+{"advance": 5}
+{"settle": true}
+{"kind": "located", "result": {"helperPath": {"$bytes": "/fake/bin/bettercast-helper"}, "helperFound": true, "dataDir": {"$bytes": "/fake/data"}, "dataDirReady": true}}
+{"command": "test.seed"}
+{"command": "panel.show"}
+# ask from the launcher: request file, then the helper streams chunks
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "What is 2+2 in words?"}}}
+{"kind": "ai_ask"}
+{"kind": "ai_request_written"}
+{"kind": "ai_line", "line": {"$bytes": "chunk Rm91cg=="}}
+{"kind": "ai_line", "line": {"$bytes": "chunk IOKAlCDCq3F1YXRyZcK7IOKckw=="}}
+{"kind": "ai_line", "line": {"$bytes": "done"}}
+{"kind": "ai_exit", "aiCode": 0}
+# a follow-up carries the earlier turn as context
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "And in German?"}}}
+{"kind": "run_selected"}
+{"kind": "ai_request_written"}
+{"kind": "ai_line", "line": {"$bytes": "chunk Vmllcg=="}}
+# Esc stops the stream and keeps the partial answer
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+{"kind": "ai_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "ai_line", "line": {"$bytes": "chunk IChsYXRlKQ=="}}
+# copy and paste the answer
+{"kind": "ai_copy"}
+{"kind": "ai_paste"}
+{"kind": "paste_written"}
+# attachments: a clipboard image and the latest clip
+{"command": "panel.show"}
+{"kind": "ai_new"}
+{"kind": "ai_attach_clip", "attachClipId": 7}
+{"kind": "ai_attach_latest"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "Describe the image"}}}
+{"kind": "ai_ask"}
+{"kind": "ai_request_written"}
+# the provider fails
+{"kind": "ai_line", "line": {"$bytes": "error provider_failed cmF0ZSBsaW1pdGVk"}}
+# a nonzero exit without output also fails
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "again"}}}
+{"kind": "ai_ask"}
+{"kind": "ai_request_written"}
+{"kind": "ai_exit", "aiCode": 2}
+# provider not installed
+{"kind": "ai_set_provider", "provider": "gemini"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "hi"}}}
+{"kind": "ai_ask"}
+# API provider without a stored key
+{"kind": "ai_set_provider", "provider": "api"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "hi"}}}
+{"kind": "ai_ask"}

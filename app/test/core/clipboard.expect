@@ -1,0 +1,28 @@
+"watchState":"running"
+"notice":{"$bytes":"seeded"}
+"clips":[{"id":100,"kind":"text","sha":{"$bytes":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"size":5
+"clips":[{"id":100,"kind":"text","sha":{"$bytes":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"size":5,"width":0,"height":0,"preview":{"$bytes":"hello"},"sourceBundle":{"$bytes":"dev.fixture.notes"},"firstMs":1700000900000,"lastMs":1700000950000
+"nextId":101
+"clips":[{"id":101,"kind":"image"
+!../../etc/passwd"}
+"watchState":"restarting"
+cmd cancel watch
+{"$bytes":"--images"},{"$bytes":"0"}
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+{"id":100,"kind":"text","sha":{"$bytes":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"size":5,"width":0,"height":0,"preview":{"$bytes":"hello"},"sourceBundle":{"$bytes":"dev.fixture.notes"},"firstMs":1700000900000,"lastMs":1700000950000,"pinned":true}
+argv=[{"$bytes":"/fake/bin/bettercast-helper"},{"$bytes":"copy"},{"$bytes":"--file"},{"$bytes":"/fake/data/clips/2222222222222222222222222222222222222222222222222222222222222222.txt"},{"$bytes":"--kind"},{"$bytes":"text"}]
+"notice":{"$bytes":"Deleted from clipboard history"}
+cmd delete_file key="" okKind="clip_deleted" errKind="clip_delete_failed" path={"$bytes":"/fake/data/clips/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png"}
+path={"$bytes":"/fake/data/clips/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.thumb.png"}
+"nowMs":1703456000000
+cmd delete_file key="" okKind="clip_deleted" errKind="clip_delete_failed" path={"$bytes":"/fake/data/clips/2222222222222222222222222222222222222222222222222222222222222222.txt"}
+path={"$bytes":"/fake/data/clips/5555555555555555555555555555555555555555555555555555555555555555.txt"}
+path={"$bytes":"/fake/data/clips/4444444444444444444444444444444444444444444444444444444444444444.txt"}
+path={"$bytes":"/fake/data/clips/3333333333333333333333333333333333333333333333333333333333333333.png"}
+path={"$bytes":"/fake/data/clips/3333333333333333333333333333333333333333333333333333333333333333.thumb.png"}
+"deleteQueue":[],"deleting":false
+"clips":[{"id":100,
+"maxItems":10
+path={"$bytes":"/fake/data/clips/000000000000000000000000000000000000000000000000000000000000d000.txt"}
+path={"$bytes":"/fake/data/clips/000000000000000000000000000000000000000000000000000000000000d001.txt"}
+"notice":{"$bytes":"Clipboard history cleared (2 pinned kept)"}

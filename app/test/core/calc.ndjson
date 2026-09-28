@@ -1,0 +1,126 @@
+# boot in BETTERCAST_TEST_MODE=1, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}
+{"command": "test.seed"}
+{"command": "panel.show"}
+# 12x4 = 48
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "12x4"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 2^10 = 1024
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2^10"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 15% of 80 = 12
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "15% of 80"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# (3+4 = 7
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "(3+4"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 1,5*2 = 3
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1,5*2"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 1,000+1 = 1001
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1,000+1"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 2(3+4) = 14
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2(3+4)"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# -3^2 = -9
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "-3^2"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 2^-1 = 0.5
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2^-1"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 10/4 = 2.5
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "10/4"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 0.1+0.2 = 0.3
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "0.1+0.2"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 80 + 15% = 92
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "80 + 15%"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 3 × 4 = 12
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "3 × 4"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 7 ÷ 2 = 3.5
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "7 ÷ 2"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 1/3 = 0.3333333333
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1/3"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 2^64 = 1.844674407e+19
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2^64"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# (1+2)(3+4) = 21
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "(1+2)(3+4)"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 1,000,000/4 = 250000
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1,000,000/4"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# 2**3 = 8
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2**3"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# -(2+3)*2 = -10
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "-(2+3)*2"}}}
+{"kind": "run_selected"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: 42
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "42"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: -5
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "-5"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: fix
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "fix"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: 1/0
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1/0"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: (3)
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "(3)"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: 1.2.3
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "1.2.3"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: 3 apples
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "3 apples"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# not a calculation: 0/0
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "0/0"}}}
+{"kind": "run_selected"}
+{"kind": "go_back"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}

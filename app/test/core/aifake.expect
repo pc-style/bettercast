@@ -1,0 +1,4 @@
+"testMode":"e2e","aiFake":true
+cmd spawn key="ai" lineKind="ai_line" exitKind="ai_exit" errKind="ai_err" collect=false argv=[{"$bytes":"/fake/bin/bettercast-helper"},{"$bytes":"ai"},{"$bytes":"--request"},{"$bytes":"/fake/data/tmp/ai-request.txt"},{"$bytes":"--provider"},{"$bytes":"fake"}]
+"notice":{"$bytes":"Copied. The app to paste into did not come to the front, so press Cmd+V there."}
+"notice":{"$bytes":"Copy failed: pasteboard busy"}

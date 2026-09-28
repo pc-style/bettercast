@@ -1,0 +1,14 @@
+# e2e mode + BETTERCAST_AI_FAKE=1: Ask AI runs the helper's fake provider
+{"kind": "env_test_mode", "value": {"$bytes": "e2e"}}
+{"kind": "env_ai_fake", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}
+{"kind": "located", "result": {"helperPath": {"$bytes": "/fake/bin/bettercast-helper"}, "helperFound": true, "dataDir": {"$bytes": "/fake/data"}, "dataDirReady": true}}
+{"command": "test.seed"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "fake question"}}}
+{"kind": "ai_ask"}
+{"kind": "ai_request_written"}
+# paste that ends as copied-only (target never came to the front)
+{"kind": "paste_done", "pasteCode": 1, "out": {"$bytes": "error not-front bm90IGZyb250\nresult copied\n"}}
+{"kind": "copy_done", "copyCode": 1, "out": {"$bytes": "error copy-failed cGFzdGVib2FyZCBidXN5\n"}}

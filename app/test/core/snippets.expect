@@ -1,0 +1,17 @@
+"notice":{"$bytes":"seeded"}
+"manageOpen":true
+"manageTab":"snippets"
+"problem":{"$bytes":"Give the snippet a name."}
+"problem":{"$bytes":"The snippet text is empty."}
+"problem":{"$bytes":"That keyword is already used by “Email sign-off”."}
+"problem":{"$bytes":"A keyword cannot contain spaces."}
+"notice":{"$bytes":"Saved snippet “Address”"}
+"draft":null
+{"id":100,"name":{"$bytes":"Address"},"keyword":{"$bytes":"addr"}
+"notice":{"$bytes":"dry-run: paste snippet Address into pid 4242"}
+"draft":{"id":1,
+"notice":{"$bytes":"Saved snippet “Sign-off (work)”"}
+{"id":1,"name":{"$bytes":"Sign-off (work)"},"keyword":{"$bytes":"sig"}
+"notice":{"$bytes":"Deleted snippet “Long lorem”"}
+-"name":{"$bytes":"Long lorem"}
+-dry-run: paste snippet Long lorem

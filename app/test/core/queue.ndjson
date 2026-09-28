@@ -1,0 +1,27 @@
+# boot in BETTERCAST_TEST_MODE=e2e, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "e2e"}}
+{"advance": 5}
+{"settle": true}
+{"kind": "located", "result": {"helperPath": {"$bytes": "/fake/bin/bettercast-helper"}, "helperFound": true, "dataDir": {"$bytes": "/fake/data"}, "dataDirReady": true}}
+{"command": "test.seed"}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=1"}}
+{"kind": "watch_line", "line": {"$bytes": "front 777 ZGV2LmZpeHR1cmUuZWRpdG9y Rml4dHVyZSBFZGl0b3I="}}
+# queue three clips (a duplicate is refused)
+{"kind": "queue_add", "queueClipId": 6}
+{"kind": "queue_add", "queueClipId": 9}
+{"kind": "queue_add", "queueClipId": 5}
+{"kind": "queue_add", "queueClipId": 6}
+{"kind": "queue_add", "queueClipId": 999}
+# paste-next hotkey pastes in queue order into the frontmost app
+{"kind": "watch_line", "line": {"$bytes": "hotkey paste_next"}}
+{"kind": "paste_done", "pasteCode": 0, "out": {"$bytes": "result pasted\n"}}
+{"kind": "paste_next"}
+# without Accessibility the helper only copies (exit 3)
+{"kind": "paste_done", "pasteCode": 3, "out": {"$bytes": "result copied\n"}}
+# a deleted clip leaves the queue
+{"kind": "clip_delete", "deleteClipId": 5}
+{"kind": "paste_next"}
+# no known frontmost app: copy instead of paste
+{"kind": "queue_add", "queueClipId": 7}
+{"kind": "watch_line", "line": {"$bytes": "front 0 - -"}}
+{"kind": "paste_next"}

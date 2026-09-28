@@ -1,0 +1,29 @@
+{"$bytes":"--hotkeys"},{"$bytes":"launcher:49:2048,clipboard:9:2304,paste_next:9:4352,ask_ai:34:2304"}
+"capturing":"launcher"
+cmd cancel watch
+{"$bytes":"--hotkeys"},{"$bytes":"-"}
+"hotkeyNotice":{"$bytes":"Opt+Space is also used by Raycast (its default launcher shortcut).
+"capturing":"none"
+{"$bytes":"launcher:49:2048,clipboard:9:2304,paste_next:9:4352,ask_ai:34:2304"}
+"hotkeyNotice":{"$bytes":"Cmd+V is reserved for Paste (Cmd+V) in every app."}
+"capturing":"clipboard"
+"hotkeyNotice":{"$bytes":"Opt+Space is already used by Open Bettercast."}
+"hotkeyNotice":{"$bytes":"Add Cmd, Opt, or Ctrl: Shift+A alone would block typing."}
+{"action":"clipboard","keyCode":8,"mods":12,"enabled":true}
+"hotkeyNotice":{"$bytes":""}
+{"$bytes":"launcher:49:2048,clipboard:8:6144,paste_next:9:4352,ask_ai:34:2304"}
+{"$bytes":"launcher:49:2048,clipboard:8:6144,ask_ai:34:2304"}
+{"$bytes":"launcher:49:2048,clipboard:8:6144,paste_next:9:4352,ask_ai:34:2304"}
+"hotkeyNotice":{"$bytes":"Opt+Cmd+I could not be registered for Ask AI. Another app already uses it; choose another shortcut in Manage > Shortcuts."}
+"panelVisible":false
+"panelVisible":true,"screen":"clipboard"
+"capturing":"ask_ai"
+{"$bytes":"--hotkeys"},{"$bytes":"-"}
+"capturing":"none"
+{"$bytes":"launcher:49:2048,clipboard:8:6144,paste_next:9:4352,ask_ai:34:2304"}
+{"action":"clipboard","keyCode":9,"mods":5,"enabled":true}
+{"$bytes":"launcher:49:2048,clipboard:9:2304,paste_next:9:4352,ask_ai:34:2304"}
+"watchRetries":1
+cmd delay arm watch_retry +3000ms -> watch_retry
+fire watch_retry -> watch_retry
+{"$bytes":"watch"},{"$bytes":"--hotkeys"}

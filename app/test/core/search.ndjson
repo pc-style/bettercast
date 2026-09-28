@@ -1,0 +1,86 @@
+# boot in BETTERCAST_TEST_MODE=1, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}
+{"command": "test.seed"}
+{"command": "panel.show"}
+# prefix beats word start: Fixture Browser first
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "fix"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# exact one-letter name wins over Quit / Paste Queue
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "q"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# exact snippet keyword ranks above everything but the calculator
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "sig"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# keyword prefix
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "lor"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# accent folding: angstrom finds Ångström
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "angstrom"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# initials: tf finds Terminal Fixture
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "tf"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# snippet body text
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "ipsum"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# clipboard preview text in root search
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "quarterly"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# calculator on top
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "2+2"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# use Terminal Fixture (1)
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "term"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# use Terminal Fixture (2)
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "term"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# use Terminal Fixture (3)
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "term"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# use Terminal Fixture (4)
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "term"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# frecency: Terminal Fixture now outranks Fixture Browser for fix
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "fix"}}}
+{"kind": "run_selected"}
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "clear"}}
+# clipboard screen filters by text and keeps pinned first
+{"command": "clipboard.open"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "caf"}}}
+{"kind": "run_selected"}
+{"command": "clipboard.open"}
+{"kind": "clip_filter", "filter": "image"}
+{"kind": "run_selected"}
+{"command": "clipboard.open"}
+{"kind": "clip_filter", "filter": "all"}
+{"kind": "run_selected"}

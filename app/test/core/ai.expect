@@ -1,0 +1,24 @@
+"notice":{"$bytes":"seeded"}
+"screen":"ai"
+"status":"running","prompt":{"$bytes":"What is 2+2 in words?"}
+cmd write_file key="ai_write" okKind="ai_request_written" errKind="ai_write_failed" path={"$bytes":"/fake/data/tmp/ai-request.txt"} bytes={"$bytes":"provider claude\nbin L29wdC9maXh0dXJlL2Jpbi9jbGF1ZGU=\nmodel -\nprompt\nWhat is 2+2 in words?"}
+cmd spawn key="ai" lineKind="ai_line" exitKind="ai_exit" errKind="ai_err" collect=false argv=[{"$bytes":"/fake/bin/bettercast-helper"},{"$bytes":"ai"},{"$bytes":"--request"},{"$bytes":"/fake/data/tmp/ai-request.txt"}]
+"answer":{"$bytes":"Four"}
+"answer":{"$bytes":"Four — «quatre» ✓"}
+"status":"done"
+bytes={"$bytes":"provider claude\nbin L29wdC9maXh0dXJlL2Jpbi9jbGF1ZGU=\nmodel -\nprompt\nEarlier in this conversation:\n\nQ: What is 2+2 in words?\n\nA: Four — «quatre» ✓\n\nFollow-up question:\n\nAnd in German?"}
+"status":"stopped"
+cmd cancel ai
+-"answer":{"$bytes":"Vier (late)"}
+cmd clip_write bytes={"$bytes":"Vier"}
+path={"$bytes":"/fake/data/tmp/paste.txt"} bytes={"$bytes":"Vier"}
+{"$bytes":"paste"},{"$bytes":"--pid"},{"$bytes":"4242"},{"$bytes":"--file"},{"$bytes":"/fake/data/tmp/paste.txt"},{"$bytes":"--kind"},{"$bytes":"text"}
+"attachments":[{"path":{"$bytes":"/fake/data/clips/3333333333333333333333333333333333333333333333333333333333333333.png"},"isImage":true},{"path":{"$bytes":"/fake/data/clips/5555555555555555555555555555555555555555555555555555555555555555.txt"},"isImage":false}]
+attach L2Zha2UvZGF0YS9jbGlwcy8zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzLnBuZw==\nattach L2Zha2UvZGF0YS9jbGlwcy81NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1LnR4dA==\nprompt\nDescribe the image
+"status":"failed"
+"failure":{"$bytes":"rate limited"}
+"failure":{"$bytes":"The provider stopped with exit code 2."}
+"aiProvider":"gemini"
+"status":"no_provider"
+Gemini CLI is not installed. Install it, or choose another provider in Manage > AI.
+"failure":{"$bytes":"No API key is stored. Save one in Manage > AI, or choose an installed CLI there."}

@@ -1,0 +1,15 @@
+"notice":{"$bytes":"seeded"}
+"notice":{"$bytes":"dry-run: open /Applications/Fixture Browser.app"}
+"notice":{"$bytes":"dry-run: open /Applications/Q.app"}
+"notice":{"$bytes":"dry-run: paste snippet Email sign-off into pid 4242"}
+"notice":{"$bytes":"dry-run: paste snippet Long lorem into pid 4242"}
+"notice":{"$bytes":"dry-run: open /Applications/Ångström Editor.app"}
+"notice":{"$bytes":"dry-run: open /Applications/Utilities/Terminal Fixture.app"}
+"notice":{"$bytes":"dry-run: paste snippet Long lorem into pid 4242"}
+"notice":{"$bytes":"dry-run: paste clip 55555555 into pid 4242"}
+"notice":{"$bytes":"dry-run: copy 4"}
+"frecency":[{"key":{"$bytes":"app:/Applications/Utilities/Terminal Fixture.app"},"count":5
+"notice":{"$bytes":"dry-run: open /Applications/Utilities/Terminal Fixture.app"}
+"notice":{"$bytes":"dry-run: paste clip 22222222 into pid 4242"}
+"notice":{"$bytes":"dry-run: paste clip 33333333 into pid 4242"}
+"notice":{"$bytes":"dry-run: paste clip 11111111 into pid 4242"}

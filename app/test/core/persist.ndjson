@@ -1,0 +1,15 @@
+# boot in BETTERCAST_TEST_MODE=1, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}
+{"command": "test.seed"}
+{"kind": "snippet_new"}
+{"kind": "draft_name", "edit": {"kind": "insert_text", "text": {"$bytes": "Kept ✓"}}}
+{"kind": "draft_body", "edit": {"kind": "insert_text", "text": {"$bytes": "persisted body"}}}
+{"kind": "draft_save"}
+{"kind": "queue_add", "queueClipId": 9}
+# a new process: the snapshot restores through the `restored` route
+{"restart": true}
+{"kind": "env_test_mode", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}

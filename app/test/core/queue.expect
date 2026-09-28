@@ -1,0 +1,15 @@
+"frontPid":777
+"notice":{"$bytes":"Added to the paste queue (1)"}
+"notice":{"$bytes":"Added to the paste queue (2)"}
+"notice":{"$bytes":"Added to the paste queue (3)"}
+"notice":{"$bytes":"Already in the paste queue"}
+"queue":[{"clipId":6},{"clipId":9},{"clipId":5}]
+"notice":{"$bytes":"Pasted a queued clip, 2 left."}
+{"$bytes":"paste"},{"$bytes":"--pid"},{"$bytes":"777"},{"$bytes":"--file"},{"$bytes":"/fake/data/clips/2222222222222222222222222222222222222222222222222222222222222222.txt"}
+"notice":{"$bytes":"Pasted a queued clip, 1 left."}
+{"$bytes":"--file"},{"$bytes":"/fake/data/clips/5555555555555555555555555555555555555555555555555555555555555555.txt"}
+"axTrusted":false
+Copied. Press Cmd+V to paste
+"queue":[]
+"notice":{"$bytes":"The paste queue is empty."}
+{"$bytes":"copy"},{"$bytes":"--file"},{"$bytes":"/fake/data/clips/3333333333333333333333333333333333333333333333333333333333333333.png"},{"$bytes":"--kind"},{"$bytes":"image"}

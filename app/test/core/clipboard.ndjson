@@ -1,0 +1,52 @@
+# boot in BETTERCAST_TEST_MODE=e2e, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "e2e"}}
+{"advance": 5}
+{"settle": true}
+{"kind": "located", "result": {"helperPath": {"$bytes": "/fake/bin/bettercast-helper"}, "helperFound": true, "dataDir": {"$bytes": "/fake/data"}, "dataDirReady": true}}
+{"command": "test.seed"}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# a new text clip goes to the front with the next id
+{"kind": "watch_line", "line": {"$bytes": "clip text 1700000900000 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 5 aGVsbG8= ZGV2LmZpeHR1cmUubm90ZXM="}}
+# the same content again: deduped, same id, newer lastMs
+{"kind": "watch_line", "line": {"$bytes": "clip text 1700000950000 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 5 aGVsbG8= ZGV2LmZpeHR1cmUubm90ZXM="}}
+# an image clip
+{"kind": "watch_line", "line": {"$bytes": "clip image 1700000960000 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 4096 32 16 ZGV2LmZpeHR1cmUucGFpbnQ="}}
+# skips and malformed lines change nothing
+{"kind": "watch_line", "line": {"$bytes": "clip-skip concealed"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1 ../../etc/passwd 5 eA== -"}}
+{"kind": "watch_line", "line": {"$bytes": "garbage line"}}
+# images off: the watch restarts with --images 0 and image clips are ignored
+{"kind": "toggle_record_images"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "clip image 1700000970000 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 4096 32 16 -"}}
+# pin, copy, delete
+{"kind": "clip_pin", "pinClipId": 100}
+{"kind": "clip_copy", "copyClipId": 6}
+{"kind": "clip_delete", "deleteClipId": 101}
+{"kind": "clip_deleted"}
+{"kind": "clip_deleted"}
+# retention: 40 days later every unpinned clip older than 30 days is pruned; files deleted one at a time
+{"kind": "tick", "tickAt": 1703456000000}
+{"kind": "clip_delete_failed", "reason": {"$bytes": "not_found"}}
+{"kind": "clip_deleted"}
+{"kind": "clip_deleted"}
+{"kind": "clip_deleted"}
+{"kind": "clip_deleted"}
+# count cap: 10 items max keeps the 10 newest unpinned clips
+{"kind": "set_max_items", "maxItems": 10}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456000000 000000000000000000000000000000000000000000000000000000000000d000 1 aXRlbSAw -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456001000 000000000000000000000000000000000000000000000000000000000000d001 2 aXRlbSAx -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456002000 000000000000000000000000000000000000000000000000000000000000d002 3 aXRlbSAy -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456003000 000000000000000000000000000000000000000000000000000000000000d003 4 aXRlbSAz -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456004000 000000000000000000000000000000000000000000000000000000000000d004 5 aXRlbSA0 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456005000 000000000000000000000000000000000000000000000000000000000000d005 6 aXRlbSA1 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456006000 000000000000000000000000000000000000000000000000000000000000d006 7 aXRlbSA2 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456007000 000000000000000000000000000000000000000000000000000000000000d007 8 aXRlbSA3 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456008000 000000000000000000000000000000000000000000000000000000000000d008 9 aXRlbSA4 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456009000 000000000000000000000000000000000000000000000000000000000000d009 10 aXRlbSA5 -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456010000 000000000000000000000000000000000000000000000000000000000000d00a 11 aXRlbSAxMA== -"}}
+{"kind": "watch_line", "line": {"$bytes": "clip text 1703456011000 000000000000000000000000000000000000000000000000000000000000d00b 12 aXRlbSAxMQ== -"}}
+{"kind": "clip_deleted"}
+{"kind": "clip_deleted"}
+# clear keeps pinned clips
+{"kind": "clips_clear"}

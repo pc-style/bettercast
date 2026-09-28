@@ -1,0 +1,53 @@
+# boot in BETTERCAST_TEST_MODE=e2e, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "e2e"}}
+{"advance": 5}
+{"settle": true}
+{"kind": "located", "result": {"helperPath": {"$bytes": "/fake/bin/bettercast-helper"}, "helperFound": true, "dataDir": {"$bytes": "/fake/data"}, "dataDirReady": true}}
+{"command": "test.seed"}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# recording suspends every global hotkey
+{"kind": "hotkey_capture", "action": "launcher"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# Opt+Space is allowed but warns about Raycast
+{"kind": "key_down", "keyIndex": 36, "mods": 4}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# blocked chords keep recording
+{"kind": "hotkey_capture", "action": "clipboard"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+{"kind": "key_down", "keyIndex": 21, "mods": 1}
+{"kind": "key_down", "keyIndex": 36, "mods": 4}
+{"kind": "key_down", "keyIndex": 0, "mods": 2}
+# a free chord is stored and the watch respawns with it
+{"kind": "key_down", "keyIndex": 2, "mods": 12}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# disable, then enable again
+{"kind": "hotkey_toggle", "action": "paste_next"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+{"kind": "hotkey_toggle", "action": "paste_next"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# the helper reports a registration conflict
+{"kind": "watch_line", "line": {"$bytes": "hotkey-error ask_ai -9878"}}
+# the launcher hotkey toggles the panel
+{"kind": "watch_line", "line": {"$bytes": "hotkey launcher"}}
+{"kind": "watch_line", "line": {"$bytes": "hotkey launcher"}}
+{"kind": "watch_line", "line": {"$bytes": "hotkey clipboard"}}
+# Esc while recording cancels and restores the hotkeys
+{"kind": "hotkey_capture", "action": "ask_ai"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+{"kind": "escape"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# reset to the default
+{"kind": "hotkey_reset", "action": "clipboard"}
+{"kind": "watch_err", "reason": {"$bytes": "cancelled"}}
+{"kind": "watch_line", "line": {"$bytes": "ready 0.1.0 ax=0"}}
+# the watch dies on its own: respawned after a delay, at most 5 times
+{"kind": "watch_exit", "watchCode": 1}
+{"advance": 3000}

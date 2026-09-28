@@ -1,0 +1,51 @@
+{
+    "$schema": "https://schema.native-sdk.dev/app/v1.json",
+    "id": "dev.pcstyle.bettercast",
+    "name": "bettercast",
+    "display_name": "Bettercast",
+    "description": "A fast, lean launcher for macOS: apps, snippets, clipboard history, calculator, and quick AI.",
+    "version": "0.1.0",
+    "icons": ["assets/icon.png"],
+    "platforms": ["macos"],
+    "permissions": ["view", "command", "credentials"],
+    "capabilities": ["native_views", "gpu_surfaces", "persist", "shortcuts", "tray", "clipboard", "credentials", "file_drops"],
+    "dock_visible": false,
+    "service_carrier": "in_process",
+    "persist": {
+        "version": 4,
+        "restore": { "ok": "restored", "none": "fresh_boot", "err": "restore_failed" }
+    },
+    "shortcuts": [
+        { "id": "actions.toggle", "key": "k", "modifiers": ["primary"] },
+        { "id": "manage.open", "key": ",", "modifiers": ["primary"] }
+    ],
+    "shell": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Bettercast",
+                "width": 720,
+                "height": 460,
+                "titlebar": "chromeless",
+                "always_on_top": true,
+                "initially_hidden": true,
+                "close_policy": "hide",
+                "resizable": false,
+                "allows_fullscreen": false,
+                "restore_state": false,
+                "restore_policy": "center_on_primary",
+                "views": [
+                    { "label": "main-canvas", "kind": "gpu_surface", "fill": true, "role": "Launcher", "accessibility_label": "Bettercast", "gpu_backend": "metal", "gpu_pixel_format": "bgra8_unorm", "gpu_present_mode": "timer", "gpu_alpha_mode": "opaque", "gpu_color_space": "srgb", "gpu_vsync": true }
+                ]
+            }
+        ]
+    },
+    "security": {
+        "navigation": {
+            "allowed_origins": ["zero://app", "zero://inline"],
+            "external_links": { "action": "deny" }
+        }
+    },
+    "web_engine": "system",
+    "cef": { "dir": "third_party/cef/macos", "auto_install": false }
+}

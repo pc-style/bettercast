@@ -1,0 +1,34 @@
+# boot in BETTERCAST_TEST_MODE=1, then load the synthetic fixtures
+{"kind": "env_test_mode", "value": {"$bytes": "1"}}
+{"advance": 5}
+{"settle": true}
+{"command": "test.seed"}
+# create: name required
+{"kind": "snippet_new"}
+{"kind": "draft_save"}
+{"kind": "draft_name", "edit": {"kind": "insert_text", "text": {"$bytes": "Address"}}}
+{"kind": "draft_save"}
+{"kind": "draft_body", "edit": {"kind": "insert_text", "text": {"$bytes": "1 Main St\nSpringfield ✓"}}}
+{"kind": "draft_keyword", "edit": {"kind": "insert_text", "text": {"$bytes": "SIG"}}}
+{"kind": "draft_save"}
+{"kind": "draft_keyword", "edit": {"kind": "set_selection", "selection": {"anchor": 0, "focus": 3}}}
+{"kind": "draft_keyword", "edit": {"kind": "insert_text", "text": {"$bytes": "my addr"}}}
+{"kind": "draft_save"}
+{"kind": "draft_keyword", "edit": {"kind": "set_selection", "selection": {"anchor": 0, "focus": 7}}}
+{"kind": "draft_keyword", "edit": {"kind": "insert_text", "text": {"$bytes": "addr"}}}
+{"kind": "draft_save"}
+# the new snippet pastes from the launcher by keyword
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "addr"}}}
+{"kind": "run_selected"}
+# edit keeps its own keyword (no self-clash)
+{"kind": "snippet_edit", "editSnippetId": 1}
+{"kind": "draft_name", "edit": {"kind": "set_selection", "selection": {"anchor": 0, "focus": 14}}}
+{"kind": "draft_name", "edit": {"kind": "insert_text", "text": {"$bytes": "Sign-off (work)"}}}
+{"kind": "draft_save"}
+# delete
+{"kind": "snippet_delete", "deleteSnippetId": 3}
+# the deleted snippet is gone from search
+{"command": "panel.show"}
+{"kind": "query_edit", "edit": {"kind": "insert_text", "text": {"$bytes": "lorem"}}}
+{"kind": "run_selected"}
