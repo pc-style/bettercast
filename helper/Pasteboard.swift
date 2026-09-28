@@ -165,16 +165,38 @@ func runPaste(_ args: Args) -> Never {
     }
     // Let the target settle so the key event lands in its key window.
     RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    // A paste started by a global shortcut (Paste Next is Ctrl+Cmd+V) runs
+    // while that shortcut's modifiers may still be down; a Cmd+V posted
+    // then merges into Ctrl+Cmd+V and the target ignores it. Wait (bounded)
+    // for them to come up.
+    let chordMods: CGEventFlags = [.maskControl, .maskAlternate, .maskShift, .maskCommand]
+    let modsDeadline = Date().addingTimeInterval(0.8)
+    while !CGEventSource.flagsState(.combinedSessionState).intersection(chordMods).isEmpty && Date() < modsDeadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    }
+    Out.line(["mods", String(CGEventSource.flagsState(.combinedSessionState).intersection(chordMods).rawValue, radix: 16)])
     let v = keyCodeForV()
+    let cmd = CGKeyCode(kVK_Command)
     let src = CGEventSource(stateID: .combinedSessionState)
-    guard let down = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: true),
-          let up = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: false) else {
+    // Keys still physically held must not leak into the synthetic chord.
+    src?.setLocalEventsFilterDuringSuppressionState([.permitLocalMouseEvents, .permitSystemDefinedEvents],
+                                                    state: .eventSuppressionStateSuppressionInterval)
+    guard let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: cmd, keyDown: true),
+          let down = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: true),
+          let up = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: false),
+          let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: cmd, keyDown: false) else {
         fail("event-failed", "could not create the Cmd+V event")
     }
+    // A full Cmd down, V, Cmd up sequence: the modifier state the target
+    // sees is exactly Cmd, and it is released afterwards.
+    cmdDown.flags = .maskCommand
     down.flags = .maskCommand
     up.flags = .maskCommand
-    down.post(tap: .cghidEventTap)
-    up.post(tap: .cghidEventTap)
+    cmdUp.flags = []
+    for event in [cmdDown, down, up, cmdUp] {
+        event.post(tap: .cghidEventTap)
+        usleep(10_000)
+    }
     Out.line(["result", "pasted"])
     exit(Exit.ok)
 }

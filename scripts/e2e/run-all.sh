@@ -422,8 +422,26 @@ c_snippet_edit() {
   A menu-command manage.snippets
   wait_for 10 manage_onscreen || fail "Manage window not on screen"
   focus_to "$M" "name=\"$SNIP_NAME, keyword $SNIP_KEYWORD\""
+  snap b07-row-focused
+  refshot "$M" b07-row-focused
   A widget-key "$M" space
-  AS "$SNIP_BODY_FIELD.*text=\"$SNIP_BODY\""
+  if ! ASSERT_MS=5000 AS "$SNIP_BODY_FIELD.*text=\"$SNIP_BODY\"" >/dev/null 2>&1; then
+    # Evidence only: the check fails either way. Which other path opens the row?
+    snap b07-after-space
+    refshot "$M" b07-after-space
+    local how="none" id
+    A widget-key "$M" enter
+    if ASSERT_MS=3000 AS "$SNIP_BODY_FIELD" >/dev/null 2>&1; then how="widget-key enter"; else
+      T key space; sleep 0.5
+      if ASSERT_MS=3000 AS "$SNIP_BODY_FIELD" >/dev/null 2>&1; then how="real Space key"; else
+        id="$(widget_id "$M" "role=listitem name=\"$SNIP_NAME, keyword $SNIP_KEYWORD\"")"
+        [[ -n "$id" ]] && A widget-action "$M" "$id" press
+        if ASSERT_MS=3000 AS "$SNIP_BODY_FIELD" >/dev/null 2>&1; then how="widget-action press"; fi
+      fi
+    fi
+    snap b07-after-probes
+    fail "Space on the Tab-focused snippet row did not open it (see snapshots/b07-row-focused, reference-canvas/b07-row-focused.png); probe that did open it: $how"
+  fi
   focus_to "$M" "$SNIP_BODY_FIELD" 10
   A widget-key "$M" cmd+a
   type_into "$M" "$SNIP_BODY_FIELD" "$SNIP_BODY2"
@@ -595,13 +613,23 @@ c_sequential_paste() {
   ev "queued A then B"
   hide_panel
   te_open queue
+  ev "before paste-next: $(T flags)"
   T key "$HK_PASTE_NEXT"
+  ev "after 1st paste-next key: $(T flags)"
   sleep 1.5
+  ev "after 1st paste-next: text '$(te_text queue 2>/dev/null | head -c 80 || true)'; notice '$(SNAPSHOT | grep -m 1 -aoE 'name="(Pasted|Copied|Paste failed|Helper)[^"]*"' || true)'; front $(T front)"
   te_front || bring_front com.apple.TextEdit
   T key "$HK_PASTE_NEXT"
   local got=""
   for _ in $(seq 1 20); do got="$(te_text queue || true)"; [[ "$got" == *"$QUEUE_B"* ]] && break; sleep 0.5; done
   echo "$got" > "$STATE/queue-result.txt"
+  if [[ "$got" != *"$QUEUE_A"* ]]; then
+    # Evidence only: does the helper's own paste reach this TextEdit document now?
+    local probe="$STATE/paste-probe.txt" tepid
+    printf 'probe-7Q' > "$probe"
+    tepid="$(T front | sed -nE 's/.*pid=([0-9]+).*/\1/p')"
+    ev "direct helper paste: $("$HELPER" paste --pid "$tepid" --file "$probe" --kind text 2>&1 | tr '\n' ' '; echo " exit=${PIPESTATUS[0]}") then text '$(sleep 1; te_text queue 2>/dev/null | head -c 80 || true)'; $(T flags)"
+  fi
   python3 - "$got" "$QUEUE_A" "$QUEUE_B" <<'PY' || fail "TextEdit text '${got:0:160}' does not contain A before B; front $(T front); TextEdit docs: $(with_timeout 10 osascript -e 'tell application "TextEdit" to get name of every document' 2>&1 || true)"
 import sys
 t, a, b = sys.argv[1:4]

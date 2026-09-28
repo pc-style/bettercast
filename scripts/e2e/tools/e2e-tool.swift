@@ -31,6 +31,7 @@ func usage() -> Never {
       nonblank <png> [--baseline <png>] [--min-changed <fraction>]
       windows <pid>                     on-screen windows owned by pid
       front                             frontmost app pid + bundle id
+      flags                             modifier flags (hid + combined session state)
       activate <bundle-id>              activate a running app
       ax-dump <pid>                     accessibility tree of an app
       ax-text <bundle-id>               value of the first text area in the app's focused window
@@ -274,6 +275,12 @@ case "key":
     let times = args.count >= 3 ? max(1, Int(args[2]) ?? 1) : 1
     for _ in 0..<times { postKey(code, flags) }
     out("key \(args[1]) x\(times)")
+
+case "flags":
+    // Modifier state as the system sees it (evidence for paste-after-hotkey).
+    let hid = CGEventSource.flagsState(.hidSystemState).rawValue
+    let combined = CGEventSource.flagsState(.combinedSessionState).rawValue
+    out("flags hid=0x\(String(hid, radix: 16)) combined=0x\(String(combined, radix: 16))")
 
 case "type":
     guard args.count >= 2 else { usage() }
