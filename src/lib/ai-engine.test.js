@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	AIEngineError,
 	createOpenAITransport,
+	extractToolSources,
 	runAI,
 	validateMessages,
 } from "./ai-engine.ts";
@@ -17,6 +18,37 @@ const events = (...rounds) => ({
 });
 
 describe("AI engine trust boundary", () => {
+	test("source cards accept actual Learn contentUrl output and reject unsafe or invented links", () => {
+		const result = {
+			content: [
+				{
+					type: "text",
+					text: JSON.stringify({
+						results: [
+							{
+								title: "Compiler reference",
+								contentUrl: "https://learn.microsoft.com/typescript/reference",
+								content: "See https://invented.example.test in prose",
+							},
+							{ title: "Other docs", url: "https://example.test/reference" },
+							{ title: "Unsafe", url: "javascript:alert(1)" },
+							{
+								title: "Credentials",
+								url: "https://name:password@example.test/",
+							},
+						],
+					}),
+				},
+			],
+		};
+		expect(extractToolSources(result)).toEqual([
+			{
+				title: "Compiler reference",
+				url: "https://learn.microsoft.com/typescript/reference",
+			},
+			{ title: "Other docs", url: "https://example.test/reference" },
+		]);
+	});
 	test("denial never invokes a tool", async () => {
 		let invoked = 0;
 		const transport = events([

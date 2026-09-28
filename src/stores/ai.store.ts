@@ -10,10 +10,10 @@ import type {
 	PendingApproval,
 	ProviderInfo,
 	ToolCall,
-	Citation,
 } from "../contracts/ai";
 import {
 	createOpenAITransport,
+	extractToolSources,
 	runAI,
 	type AIContentBlock,
 	type AIMessage,
@@ -162,31 +162,6 @@ export function createAIStore(root: IRootStore) {
 			store.providers = providers;
 		});
 	};
-	const citations = (value: unknown): Citation[] => {
-		const found = new Map<string, Citation>();
-		const walk = (input: any, depth: number) => {
-			if (depth > 8 || found.size >= 30 || !input) return;
-			if (Array.isArray(input)) {
-				input.slice(0, 100).forEach((item) => walk(item, depth + 1));
-				return;
-			}
-			if (typeof input === "object") {
-				if (typeof input.url === "string" && /^https?:\/\//.test(input.url))
-					found.set(input.url, {
-						url: input.url,
-						title: typeof input.title === "string" ? input.title : undefined,
-						fetchedAt: Date.now(),
-					});
-				Object.values(input).forEach((item) => walk(item, depth + 1));
-			} else if (typeof input === "string" && input.length < 1_048_576) {
-				try {
-					walk(JSON.parse(input), depth + 1);
-				} catch {}
-			}
-		};
-		walk(value, 0);
-		return [...found.values()];
-	};
 	async function generate(input: AIMessage[]) {
 		const provider = store.providers.find(
 			(item) => item.id === store.draft.providerId,
@@ -294,7 +269,7 @@ export function createAIStore(root: IRootStore) {
 						});
 						try {
 							const result = await tool.call(args, callSignal);
-							const sources = citations(result);
+							const sources = extractToolSources(result);
 							runInAction(() => {
 								if (call) {
 									call.state = "done";

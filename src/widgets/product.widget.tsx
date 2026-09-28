@@ -25,6 +25,9 @@ const Button: FC<{
 	<TouchableOpacity
 		disabled={disabled}
 		onPress={onPress}
+		accessibilityRole="button"
+		accessibilityLabel={label}
+		accessibilityState={{ disabled: !!disabled }}
 		className={clsx(
 			"rounded-md px-3 py-2 border border-color",
 			danger ? "bg-red-500/10" : "subBg",
@@ -49,6 +52,7 @@ const Field: FC<{
 		value={p.value}
 		onChangeText={p.set}
 		placeholder={p.placeholder}
+		accessibilityLabel={p.placeholder}
 		placeholderTextColor="#888"
 		multiline={p.multiline}
 		secureTextEntry={p.secure}
@@ -249,8 +253,8 @@ const PrivacyScreen = observer(() => {
 			<ScrollView contentContainerStyle={{ padding: 12, gap: 10 }}>
 				<Notice
 					tone="warning"
-					title="Encryption status is not verified here"
-					detail="This screen cannot attest to runtime or disk encryption. Check macOS FileVault and your organization’s policy."
+					title="Synthetic trial data only"
+					detail="SQLCipher index and encrypted payload storage are implemented; native privacy acceptance is still pending. FileVault is additional protection, not a substitute for app encryption."
 				/>
 				<Text className="darker-text text-xs">Retention days</Text>
 				<Field value={days} set={setDays} placeholder="30" />
@@ -278,13 +282,7 @@ const PrivacyScreen = observer(() => {
 				<View className="flex-row gap-2">
 					<Button label="Pause capture" onPress={() => c.pauseCapture()} />
 					<Button label="Private mode" onPress={() => c.setPrivateMode(true)} />
-					<Button
-						label="Resume"
-						onPress={() => {
-							c.setPrivateMode(false);
-							c.resumeCapture();
-						}}
-					/>
+					<Button label="Resume" onPress={() => c.resumeCapture()} />
 				</View>
 				<Button
 					danger

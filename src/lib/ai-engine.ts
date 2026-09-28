@@ -78,6 +78,44 @@ export interface RunAIResult {
 	toolCalls: AIToolCall[];
 }
 
+/** Source links must originate in tool output, never a guessed model citation. */
+export function extractToolSources(
+	value: unknown,
+): Array<{ url: string; title?: string }> {
+	const found = new Map<string, { url: string; title?: string }>();
+	let visited = 0;
+	const walk = (input: any, depth: number) => {
+		if (depth > 8 || found.size >= 30 || ++visited > 2000 || !input) return;
+		if (Array.isArray(input)) {
+			input.slice(0, 100).forEach((item) => walk(item, depth + 1));
+		} else if (typeof input === "object") {
+			// Microsoft Learn returns contentUrl; other search tools commonly use url.
+			const candidate = input.url ?? input.contentUrl;
+			if (typeof candidate === "string") {
+				try {
+					const url: any = new URL(candidate);
+					if (
+						["http:", "https:"].includes(url.protocol) &&
+						!url.username &&
+						!url.password
+					)
+						found.set(url.href, {
+							url: url.href,
+							title: typeof input.title === "string" ? input.title : undefined,
+						});
+				} catch {}
+			}
+			Object.values(input).forEach((item) => walk(item, depth + 1));
+		} else if (typeof input === "string" && input.length < 1_048_576) {
+			try {
+				walk(JSON.parse(input), depth + 1);
+			} catch {}
+		}
+	};
+	walk(value, 0);
+	return [...found.values()];
+}
+
 export class AIEngineError extends Error {
 	constructor(
 		public readonly code:

@@ -9,6 +9,19 @@ let calls = [],
 let beforeWrite;
 const native = {
 	getAIProviders: async () => [{ provider: "claude", available: true }],
+	async clipboardRequest(request) {
+		calls.push(request);
+		return {
+			config: {
+				retentionDays: 30,
+				capBytes: 1024,
+				excludedBundleIds: [],
+				skipSensitive: true,
+			},
+			capture: { status: "private" },
+			retention: null,
+		};
+	},
 	addListener(_event, listener) {
 		listeners.add(listener);
 		return {
@@ -51,7 +64,11 @@ const native = {
 	},
 };
 mock.module("../src/lib/SolNative", () => ({ solNative: native }));
+mock.module("../src/stores/ui.store", () => ({
+	Widget: { CLIPBOARD: "clipboard" },
+}));
 const { createAIStore } = await import("../src/stores/ai.store");
+const { createClipboardStore } = await import("../src/stores/clipboard.store");
 const { nativeStream } = await import("../src/lib/native-stream");
 const make = () =>
 	createAIStore({
@@ -159,4 +176,28 @@ test("replacement does not pretend an ordinary paste replaced a captured selecti
 	await ai.initialize();
 	expect((await ai.insert("missing", "replace")).status).toBe("failed");
 	expect(calls.some((r) => r.op === "pasteText")).toBe(false);
+});
+test("resume leaves capture private until explicit confirmation and changes policy atomically", async () => {
+	let accept;
+	const clipboard = createClipboardStore({
+		ui: {
+			focusedWidget: "search",
+			query: "",
+			confirm(_message, callback) {
+				accept = callback;
+			},
+		},
+	});
+	await Promise.resolve();
+	clipboard.resumeCapture();
+	expect(calls.filter((request) => request.op === "configure")).toEqual([]);
+	accept();
+	await Promise.resolve();
+	expect(calls.filter((request) => request.op === "configure")).toEqual([
+		{
+			op: "configure",
+			config: { enabled: true, paused: false, pauseUntil: 0, private: false },
+		},
+	]);
+	clipboard.cleanUp();
 });

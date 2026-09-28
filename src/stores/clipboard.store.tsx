@@ -199,7 +199,12 @@ export function createClipboardStore(root: IRootStore) {
 				"Enable capture for synthetic trial data? SQLCipher and encrypted payload storage are implemented but native privacy acceptance is pending. Do not copy sensitive data during this trial. No history is imported.",
 				() => {
 					void request("configure", {
-						config: { enabled: true, paused: false, pauseUntil: 0 },
+						config: {
+							enabled: true,
+							paused: false,
+							pauseUntil: 0,
+							private: false,
+						},
 					})
 						.then(updateStatus)
 						.catch((error) =>
