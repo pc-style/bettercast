@@ -130,6 +130,19 @@ jobs:
           cat Bettercast-arm64-adhoc.zip.sha256 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Disposable native launch smoke
+        timeout-minutes: 2
+        run: python3 scripts/ci/smoke-app.py "$OUT_DIR/Bettercast.app" "$RUNNER_TEMP/native-smoke"
+
+      - name: Upload native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-smoke
+          path: ${{ runner.temp }}/native-smoke
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Upload app
         uses: actions/upload-artifact@v4
         with:
