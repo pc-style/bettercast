@@ -52,20 +52,11 @@
                 </column>
                 <column gap="4">
                   <text>Text</text>
-                  <textarea label="Text" placeholder="The text Bettercast pastes" height="160" text="{draftBody}" on-input="draft_body" on-submit="draft_save" />
-                  <text foreground="text_muted">Cmd+Return saves.</text>
+                  <textarea label="Text" placeholder="The text Bettercast pastes" height="120" text="{draftBody}" on-input="draft_body" on-submit="draft_save" />
                 </column>
                 <if test="{hasDraftError}">
                   <text wrap="true" foreground="destructive_text">{draftError}</text>
                 </if>
-                <row gap="8" cross="center">
-                  <button variant="primary" on-press="draft_save">Save</button>
-                  <button variant="outline" on-press="draft_cancel">Cancel</button>
-                  <spacer grow="1" />
-                  <if test="{draftIsSaved}">
-                    <button variant="destructive" on-press="confirm_snippet_delete:{draftId}">Delete…</button>
-                  </if>
-                </row>
               </if>
               <else>
                 <text wrap="true" foreground="text_muted">Select a snippet to edit it, or press New Snippet.</text>
@@ -167,6 +158,22 @@
         </if>
       </column>
     </scroll>
+    <!-- The snippet form's actions stay in a fixed bar outside the scroll:
+         Tab skips controls scrolled fully out of view, so Save must never
+         sit below the fold (short window, notice bar). -->
+    <if test="{tabIsSnippets}">
+      <if test="{hasDraft}">
+        <separator />
+        <row padding="12" gap="8" cross="center">
+          <button variant="primary" on-press="draft_save">Save</button>
+          <button variant="outline" on-press="draft_cancel">Cancel</button>
+          <text grow="1" foreground="text_muted">Cmd+Return saves.</text>
+          <if test="{draftIsSaved}">
+            <button variant="destructive" on-press="confirm_snippet_delete:{draftId}">Delete…</button>
+          </if>
+        </row>
+      </if>
+    </if>
     <if test="{hasNotice}">
       <separator />
       <row padding="8" gap="8" cross="center">

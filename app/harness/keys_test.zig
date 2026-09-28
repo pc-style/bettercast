@@ -585,3 +585,74 @@ test "views: sections, Cmd+K delete with confirm, clipboard filter, AI screen, M
     std.debug.print("after Ctrl+Opt+Cmd+J: capturing={s} keyCode={d} mods={d} notice=\"{s}\"\n", .{ @tagName(f.model().capturing), f.model().hotkeys[0].keyCode, f.model().hotkeys[0].mods, f.model().hotkeyNotice });
     try f.expectSnapshotContains("Ctrl+Opt+Cmd+J");
 }
+
+test "Manage snippets by Tab alone at the minimum window size with a notice bar" {
+    const f = try Fixture.create();
+    defer f.destroy();
+    try openSeededPanel(f);
+    // A footer notice (dry-run open) takes space in Manage too, like the
+    // CI run's "Copied ..." notice did when Save fell below the fold.
+    try f.typeText("q");
+    try f.key("enter");
+    std.debug.print("notice: \"{s}\"\n", .{f.model().notice});
+    try std.testing.expect(f.model().notice.len > 0);
+
+    try f.command("manage.snippets");
+    const full = try manageSurface(f);
+    // The smallest Manage window core.ts allows (minWidth x minHeight).
+    const m = Surface{ .window_id = full.window_id, .label = full.label, .size = geometry.SizeF.init(640, 420) };
+    try frameOn(f, m);
+    try f.expectSnapshotContains("role=button name=\"Dismiss\"");
+
+    // Create: New Snippet, Name, Keyword, Text, then Tab (not Cmd+Return) to Save.
+    _ = try tabTo(f, m, "New Snippet", 12);
+    try keyOn(f, m, "space", .{});
+    try std.testing.expectEqualStrings("Name", (try focusedOn(f, m)).semantics.label);
+    try typeOn(f, m, "Ωmega tab — ïx");
+    _ = try tabTo(f, m, "Keyword", 2);
+    try typeOn(f, m, "qx9");
+    _ = try tabTo(f, m, "Text", 2);
+    try typeOn(f, m, "Tab-saved body 7");
+    _ = try tabTo(f, m, "Save", 3);
+    try keyOn(f, m, "space", .{});
+    std.debug.print("after Tab+Space Save: snippets={d} draft_null={}\n", .{ f.model().snippets.len, f.model().draft == null });
+    try std.testing.expectEqual(@as(usize, 5), f.model().snippets.len);
+    try std.testing.expectEqualStrings("Tab-saved body 7", f.model().snippets[4].body);
+    try f.expectSnapshotContains("name=\"Ωmega tab — ïx, keyword qx9\"");
+
+    // Edit: Tab to the saved row, Space opens it, change the body, Tab to Save.
+    _ = try tabTo(f, m, "Ωmega tab — ïx, keyword qx9", 24);
+    try keyOn(f, m, "space", .{});
+    try std.testing.expect(f.model().draft != null);
+    _ = try tabTo(f, m, "Text", 12);
+    try typeOn(f, m, " edited");
+    _ = try tabTo(f, m, "Save", 3);
+    try keyOn(f, m, "space", .{});
+    std.debug.print("edited body: \"{s}\"\n", .{f.model().snippets[4].body});
+    try std.testing.expect(std.mem.indexOf(u8, f.model().snippets[4].body, " edited") != null);
+
+    // Delete: row, Space, Tab to Delete…, Space, confirm with Space.
+    _ = try tabTo(f, m, "Ωmega tab — ïx, keyword qx9", 24);
+    try keyOn(f, m, "space", .{});
+    _ = try tabTo(f, m, "Delete…", 20);
+    try keyOn(f, m, "space", .{});
+    try std.testing.expect(f.model().confirm.kind == .snippet);
+    try f.printSnapshot("manage: delete confirm");
+    try std.testing.expectEqualStrings("Delete", (try focusedOn(f, m)).text);
+    try keyOn(f, m, "space", .{});
+    try std.testing.expect(f.model().confirm.kind == .none);
+    try std.testing.expectEqual(@as(usize, 4), f.model().snippets.len);
+    try f.expectSnapshotLacks("name=\"Ωmega tab — ïx, keyword qx9\"");
+
+    // Clipboard search: every query word must appear in the clip. The old
+    // subsequence match let "hot" hit "hello there" (h..o..t) and the long
+    // report clip, like CI's "clip one" hit the longer clip two.
+    try f.command("clipboard.open");
+    try f.typeText("report 7");
+    try f.expectSnapshotContains("name=\"Quarterly sample report");
+    try f.expectSnapshotLacks("name=\"hello there, Clipboard\"");
+    try f.key("escape");
+    try f.typeText("hot");
+    try f.expectSnapshotLacks("name=\"hello there, Clipboard\"");
+    try f.expectSnapshotLacks("name=\"Quarterly sample report");
+}
