@@ -88,6 +88,21 @@ jobs:
             ENABLE_HARDENED_RUNTIME=NO \
             build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | awk '/error:|warning: .*(sign|bundle)|\*\* BUILD|^Ld |CodeSign |PhaseScript/ { print; fflush(); }'
 
+      - name: Product native storage tests
+        run: |
+          set -euo pipefail
+          swiftc macos/sol-macOS/lib/AIWorkspace.swift scripts/test-ai-workspace.swift \
+            -o "$RUNNER_TEMP/test-ai-workspace"
+          "$RUNNER_TEMP/test-ai-workspace"
+          cipher="$DERIVED_DATA/SourcePackages/checkouts/SQLCipher.swift/Sources/SQLCipher/SQLCipher.xcframework/macos-arm64_x86_64"
+          test -d "$cipher/SQLCipher.framework"
+          swiftc -D CLIPBOARD_TEST -F "$cipher" -framework SQLCipher \
+            -Xcc -DSQLITE_HAS_CODEC=1 -Xlinker -rpath -Xlinker "$cipher" \
+            macos/sol-macOS/lib/AIWorkspace.swift \
+            macos/sol-macOS/lib/ClipboardRepository.swift scripts/test-clipboard.swift \
+            -o "$RUNNER_TEMP/test-clipboard"
+          "$RUNNER_TEMP/test-clipboard"
+
       - name: Package and inspect
         run: |
           set -euo pipefail
