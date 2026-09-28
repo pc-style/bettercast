@@ -64,6 +64,7 @@ export function createAIStore(root: IRootStore) {
 	let initializing: Promise<void> | undefined;
 	let sending = false;
 	let cancellationEpoch = 0;
+	let pendingDeletion: string | null = null;
 	const selectContents = (ids: Set<string>) =>
 		Object.fromEntries(
 			Object.entries(attachmentContents).filter(([id]) => ids.has(id)),
@@ -88,6 +89,7 @@ export function createAIStore(root: IRootStore) {
 			version: 1,
 			draft: toJS(store.draft),
 			conversations: toJS(store.conversations),
+			pendingDeletion,
 			config,
 			attachmentContents: selectContents(draftIds),
 		};
@@ -340,24 +342,40 @@ export function createAIStore(root: IRootStore) {
 						op: "readDocument",
 						id: "ai-index",
 					});
+					let recovering = false;
 					if (raw) {
 						const saved = JSON.parse(raw);
 						if (saved.version !== 1)
 							throw new Error("Unsupported AI history version");
+						if (saved.pendingDeletion != null && typeof saved.pendingDeletion !== "string")
+							throw new Error("Invalid pending conversation deletion");
 						config = saved.config;
 						attachmentContents = saved.attachmentContents ?? {};
+						pendingDeletion = saved.pendingDeletion ?? null;
 						runInAction(() => {
 							store.draft = saved.draft ?? emptyDraft();
 							store.conversations = saved.conversations ?? [];
 						});
+					}
+					if (pendingDeletion) {
+						recovering = true;
+						// A crash may have happened on either side of unlink. An unreadable
+						// vault must fail closed rather than be treated as a missing document.
+						const exists = await solNative.workspaceRequest({ op: "readDocument", id: pendingDeletion });
+						if (exists == null) {
+							store.conversations = store.conversations.filter((item) => item.id !== pendingDeletion);
+						}
+						pendingDeletion = null;
 					}
 					await updateProviders();
 					await root.mcp.initialize();
 					runInAction(() => {
 						store.initialized = true;
 					});
+					if (recovering) await persist();
 				} catch (error) {
 					runInAction(() => {
+					store.initialized = false;
 						store.error = String(error);
 					});
 				} finally {
@@ -703,39 +721,36 @@ export function createAIStore(root: IRootStore) {
 			if (sending || store.busy) throw new Error("Stop the current request before deleting a conversation");
 			if (!store.conversations.some((item) => item.id === id))
 				throw new Error("Conversation not found");
-			const previous = {
-				conversations: toJS(store.conversations),
-				conversationId: store.conversationId,
-				messages: toJS(store.messages),
-				history,
-				lastRequest,
-				attachmentContents,
-			};
 			store.busy = true;
-			store.conversations = store.conversations.filter((item) => item.id !== id);
-			if (store.conversationId === id) {
-				store.conversationId = null;
-				store.messages = [];
-				history = [];
-				lastRequest = [];
-				attachmentContents = selectContents(new Set(store.draft.attachments.map((item) => item.id)));
-			}
+			store.error = null;
+			let deleted = false;
 			try {
-				// Persist the index before removing the payload; pending older saves
-				// complete first so they cannot recreate a deleted document.
+				// The summary remains visible until the pending marker is durable.
+				// Older queued saves complete before unlink; restart resolves the marker.
+				pendingDeletion = id;
+				try { await persist(); }
+				catch (error) { pendingDeletion = null; throw error; }
+				try { await solNative.workspaceRequest({ op: "deleteDocument", id }); }
+				catch (error) {
+					pendingDeletion = null;
+					await persist().catch(() => {});
+					throw error;
+				}
+				deleted = true;
+				store.conversations = store.conversations.filter((item) => item.id !== id);
+				if (store.conversationId === id) {
+					store.conversationId = null;
+					store.messages = [];
+					history = [];
+					lastRequest = [];
+					attachmentContents = selectContents(new Set(store.draft.attachments.map((item) => item.id)));
+				}
+				pendingDeletion = null;
 				await persist();
-				await solNative.workspaceRequest({ op: "deleteDocument", id });
 			} catch (error) {
-				runInAction(() => {
-					store.conversations = previous.conversations;
-					store.conversationId = previous.conversationId;
-					store.messages = previous.messages;
-					history = previous.history;
-					lastRequest = previous.lastRequest;
-					attachmentContents = previous.attachmentContents;
-					store.error = `Could not delete conversation: ${String(error)}`;
-				});
-				await persist().catch(() => {});
+				store.error = deleted
+					? `Conversation deleted, but the history index could not be saved. Restart to finish cleanup: ${String(error)}`
+					: `Could not delete conversation: ${String(error)}`;
 				throw error;
 			} finally {
 				store.busy = false;

@@ -6,9 +6,9 @@ Deliver a dependable personal Raycast replacement by September 29, 2026. Use `to
 
 ## Starting point
 
-- Repository: https://github.com/pc-style/bettercast
+- Repository: https://github.com/pcstyle-os/bettercast (transferred September 28, 2026)
 - Start from freshly fetched `origin/main`, which consolidates the foundation, product, UI, and native build work.
-- Stack: React Native macOS, TypeScript, Swift, Bun. Builds use standard GitHub-hosted macOS Actions.
+- Stack: React Native macOS, TypeScript, Swift, Bun. Builds currently use GitHub-hosted macOS Actions; Blacksmith is not configured yet.
 - Existing features include selective Raycast import, clipboard history and paste queue, snippets, commands, streaming AI, attachments, and approved MCP calls. Implementation does not imply complete acceptance.
 - Native CI has built the product, tested encrypted storage with 10,000 clipboard entries, verified packaging, and launched to the welcome screen. Inspect the latest run for current evidence and the second-launch result.
 - The prior AppDelegate startup crash is fixed. Preserve actual packaged-app launch checks; compilation alone is not enough.

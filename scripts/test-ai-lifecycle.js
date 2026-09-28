@@ -4,6 +4,7 @@ const documents = new Map();
 const listeners = new Set();
 let calls = [],
 	failRead = false,
+	failReadId = null,
 	failHTTP = false,
 	failDelete = false,
 	removeCount = 0;
@@ -34,7 +35,7 @@ const native = {
 	async workspaceRequest(request) {
 		calls.push(request);
 		if (request.op === "readDocument") {
-			if (failRead) throw new Error("Vault unavailable");
+			if (failRead || request.id === failReadId) throw new Error("Vault unavailable");
 			return documents.get(request.id) ?? null;
 		}
 		if (request.op === "writeDocument") {
@@ -95,6 +96,7 @@ beforeEach(() => {
 	calls = [];
 	listeners.clear();
 	failRead = false;
+	failReadId = null;
 	failHTTP = false;
 	failDelete = false;
 	removeCount = 0;
@@ -173,6 +175,26 @@ test("deletion failure preserves the conversation and its messages", async () =>
 	expect(JSON.parse(documents.get("ai-index")).conversations[0].id).toBe(id);
 	expect(ai.error).toContain("Could not delete conversation");
 });
+test("failed delete and failed marker rollback recover visible history on restart", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "synthetic recovery" });
+	await ai.send();
+	const id = ai.conversationId;
+	failDelete = true;
+	beforeWrite = request => {
+		if (request.id === "ai-index" && JSON.parse(request.value).pendingDeletion === null)
+			throw new Error("Rollback unavailable");
+	};
+	await expect(ai.deleteConversation(id)).rejects.toThrow("Vault deletion unavailable");
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBe(id);
+	expect(documents.has(id)).toBe(true);
+	beforeWrite = undefined;
+	const reopened = make();
+	await reopened.initialize();
+	expect(reopened.conversations.map(c => c.id)).toEqual([id]);
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBeNull();
+});
 test("index write failure never deletes a conversation document", async () => {
 	const ai = make();
 	await ai.initialize();
@@ -191,6 +213,55 @@ test("index write failure never deletes a conversation document", async () => {
 	expect(documents.has(id)).toBe(true);
 	expect(ai.conversations.map(c => c.id)).toEqual([id]);
 	expect(JSON.parse(documents.get("ai-index")).conversations[0].id).toBe(id);
+});
+test("restart after unlink and failed final index write finishes deletion", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "synthetic final write" });
+	await ai.send();
+	const id = ai.conversationId;
+	beforeWrite = request => {
+		if (request.id === "ai-index" && JSON.parse(request.value).pendingDeletion === null)
+			throw new Error("Final index unavailable");
+	};
+	await expect(ai.deleteConversation(id)).rejects.toThrow("Final index unavailable");
+	expect(documents.has(id)).toBe(false);
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBe(id);
+	beforeWrite = undefined;
+	const reopened = make();
+	await reopened.initialize();
+	expect(reopened.conversations).toEqual([]);
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBeNull();
+});
+test("restart interrupted before unlink retains the existing conversation", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "synthetic interrupted" });
+	await ai.send();
+	const id = ai.conversationId;
+	const snapshot = JSON.parse(documents.get("ai-index"));
+	documents.set("ai-index", JSON.stringify({ ...snapshot, pendingDeletion: id }));
+	const reopened = make();
+	await reopened.initialize();
+	expect(documents.has(id)).toBe(true);
+	expect(reopened.conversations.map(c => c.id)).toEqual([id]);
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBeNull();
+});
+test("unreadable pending conversation stops recovery without rewriting the index", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "synthetic unreadable history" });
+	await ai.send();
+	const id = ai.conversationId;
+	const snapshot = JSON.parse(documents.get("ai-index"));
+	documents.set("ai-index", JSON.stringify({ ...snapshot, pendingDeletion: id }));
+	failReadId = id;
+	const reopened = make();
+	await reopened.initialize();
+	expect(reopened.initialized).toBe(false);
+	expect(reopened.error).toContain("Vault unavailable");
+	expect(JSON.parse(documents.get("ai-index")).pendingDeletion).toBe(id);
+	expect(documents.has(id)).toBe(true);
 });
 test("unreadable encrypted state never enables writes or sends", async () => {
 	failRead = true;

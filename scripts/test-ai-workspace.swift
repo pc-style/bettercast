@@ -50,6 +50,8 @@ import Darwin
     let vault = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: vault) }
+    let missing = try LocalVault.read(id: "absent", directory: vault)
+    precondition(missing == nil)
     let document = try LocalVault.documentURL(id: "conversation-1", directory: vault)
     try encrypted.write(to: document)
     do { try LocalVault.delete(id: "../bad", directory: vault); fatalError("bad deletion id accepted") }
@@ -58,6 +60,16 @@ import Darwin
     try LocalVault.delete(id: "conversation-1", directory: vault)
     precondition(!FileManager.default.fileExists(atPath: document.path))
     try LocalVault.delete(id: "conversation-1", directory: vault)
+    try encrypted.write(to: document)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: vault.path)
+    do {
+      defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: vault.path) }
+      do { try LocalVault.delete(id: "conversation-1", directory: vault); fatalError("inaccessible vault accepted") }
+      catch { precondition((error as NSError).code != NSFileNoSuchFileError) }
+      do { _ = try LocalVault.read(id: "conversation-1", directory: vault); fatalError("inaccessible vault read as absent") }
+      catch { precondition((error as NSError).code != NSFileReadNoSuchFileError) }
+    }
+    precondition(FileManager.default.fileExists(atPath: document.path))
 
     let executable = URL(fileURLWithPath: CommandLine.arguments[0])
     try AIWorkspace.openStdioSession(id: "rpc", executable: executable, arguments: ["rpc"], maxOutputBytes: 512_000)

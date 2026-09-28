@@ -202,10 +202,19 @@ enum LocalVault {
     #endif
   }
 
-  static func read(id: String) throws -> String? {
-    let url = try documentURL(id: id, directory: vaultDirectory())
-    guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-    let encrypted = try Data(contentsOf: url, options: .mappedIfSafe)
+  static func read(id: String, directory: URL = vaultDirectory()) throws -> String? {
+    let url = try documentURL(id: id, directory: directory)
+    let encrypted: Data
+    do {
+      encrypted = try Data(contentsOf: url, options: .mappedIfSafe)
+    } catch {
+      let failure = error as NSError
+      if failure.domain == NSCocoaErrorDomain &&
+         (failure.code == NSFileReadNoSuchFileError || failure.code == NSFileNoSuchFileError) {
+        return nil
+      }
+      throw error
+    }
     guard encrypted.count <= maxDocumentBytes + 64 else { throw AIWorkspaceError.limitExceeded("Vault document too large") }
     let clear = try open(encrypted, key: key())
     guard let text = String(data: clear, encoding: .utf8) else { throw AIWorkspaceError.protocolError("Invalid vault document") }
@@ -225,8 +234,13 @@ enum LocalVault {
 
   static func delete(id: String, directory: URL = vaultDirectory()) throws {
     let url = try documentURL(id: id, directory: directory)
-    if FileManager.default.fileExists(atPath: url.path) {
+    do {
       try FileManager.default.removeItem(at: url)
+    } catch {
+      let failure = error as NSError
+      if failure.domain != NSCocoaErrorDomain || failure.code != NSFileNoSuchFileError {
+        throw error
+      }
     }
   }
 
