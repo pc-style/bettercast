@@ -570,4 +570,18 @@ test "views: sections, Cmd+K delete with confirm, clipboard filter, AI screen, M
     try std.testing.expectEqual(@as(i64, 49), f.model().hotkeys[0].keyCode);
     try std.testing.expectEqual(@as(i64, 4), f.model().hotkeys[0].mods);
     try f.expectSnapshotContains("Opt+Space");
+
+    // 8. The CI hotkey_change sequence, with the exact modifier set
+    //    `native automate widget-key ... cmd+space` / `ctrl+alt+cmd+j`
+    //    produce (command AND primary for cmd).
+    try keyOn(f, m, "space", .{});
+    try keyOn(f, m, "space", .{ .command = true, .primary = true });
+    std.debug.print("after Cmd+Space: capturing={s} notice=\"{s}\"\n", .{ @tagName(f.model().capturing), f.model().hotkeyNotice });
+    try f.expectSnapshotContains("Spotlight");
+    try std.testing.expectEqualStrings("Record shortcut for Open Bettercast", (try focusedOn(f, m)).semantics.label);
+    try keyOn(f, m, "space", .{});
+    try std.testing.expect(f.model().capturing == .launcher);
+    try keyOn(f, m, "j", .{ .control = true, .option = true, .command = true, .primary = true });
+    std.debug.print("after Ctrl+Opt+Cmd+J: capturing={s} keyCode={d} mods={d} notice=\"{s}\"\n", .{ @tagName(f.model().capturing), f.model().hotkeys[0].keyCode, f.model().hotkeys[0].mods, f.model().hotkeyNotice });
+    try f.expectSnapshotContains("Ctrl+Opt+Cmd+J");
 }

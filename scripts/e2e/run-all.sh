@@ -82,6 +82,9 @@ HK_ASK_AI='opt+cmd+i'
 HK_NEW='ctrl+opt+cmd+j'          # what the hotkey_change check records
 HK_NEW_WIDGET='ctrl+alt+cmd+j'   # same chord in native automate syntax
 HK_NEW_LABEL='Ctrl+Opt+Cmd+J'
+# `native automate assert` patterns are regexes: a bare `+` is a quantifier,
+# so literal chord labels need `[+]`.
+HK_NEW_LABEL_RE='Ctrl[+]Opt[+]Cmd[+]J'
 
 # Synthetic, asymmetric test data (never real user data).
 SNIP_NAME='E2E Ωmega snippet'
@@ -99,13 +102,16 @@ A() { (cd "$RUN_DIR" && native automate "$@"); }
 AS() { A assert --timeout-ms "${ASSERT_MS:-10000}" "$@"; }
 AS_ABSENT() { A assert --absent --timeout-ms "${ASSERT_MS:-10000}" "$@"; }
 SNAPSHOT() { cat "$RUN_DIR/.zig-cache/native-sdk-automation/snapshot.txt" 2>/dev/null; }
-snap_has() { SNAPSHOT | grep -aqE -- "$1"; }
+# grep the file directly: `cat | grep -q` exits 141 (SIGPIPE) under pipefail
+# when grep stops reading early, which read as "no match".
+snap_has() { grep -aqE -- "$1" "$RUN_DIR/.zig-cache/native-sdk-automation/snapshot.txt" 2>/dev/null; }
 snap() { SNAPSHOT > "$OUT/snapshots/$1.txt" || true; }
-app_pid() { cat "$STATE/app.pid" 2>/dev/null; }
+# `|| true`: x="$(app_pid)" must not trip errexit before the app wrote its pid.
+app_pid() { cat "$STATE/app.pid" 2>/dev/null || true; }
 T() { "$TOOL" "$@"; }
 
 widget_id() { # view pattern -> numeric widget id from the snapshot
-  SNAPSHOT | grep -aoE -- "/$1#[0-9]+ $2" | head -n 1 | sed -E 's/^[^#]*#([0-9]+).*/\1/'
+  SNAPSHOT | grep -m 1 -aoE -- "/$1#[0-9]+ $2" | sed -E 's/^[^#]*#([0-9]+).*/\1/' || true
 }
 
 set_text() { # view pattern text (runtime text-input path; used as fallback)
@@ -259,7 +265,7 @@ c_bundle() {
   ev "helper selftest ok (packaged copy)"
   codesign --verify --deep --strict "$APP" || fail "codesign --verify failed"
   ev "codesign: $(codesign -dv "$APP" 2>&1 | grep -E 'Signature|Identifier=' | tr '\n' ' ')"
-  plutil -p "$APP/Contents/Info.plist" | grep -q 'dev.pcstyle.bettercast' || fail "bundle id mismatch"
+  plutil -p "$APP/Contents/Info.plist" | grep 'dev.pcstyle.bettercast' >/dev/null || fail "bundle id mismatch"
   ev "bundle id dev.pcstyle.bettercast"
 }
 
@@ -636,7 +642,7 @@ c_hotkey_change() {
   A widget-key "$M" space
   AS 'Press the new shortcut'
   A widget-key "$M" "$HK_NEW_WIDGET"
-  AS "$HK_NEW_LABEL"
+  AS "$HK_NEW_LABEL_RE"
   ev "launcher recorded as $HK_NEW_LABEL"
   refshot "$M" b12-hotkey-changed
   sleep 1.5   # watch respawn with new --hotkeys
@@ -653,7 +659,7 @@ c_hotkey_change() {
   focus_to "$M" "$RECORD_LAUNCHER_BTN" 30
   A widget-key "$M" space
   A widget-key "$M" alt+space
-  AS 'Opt+Space'
+  AS 'Opt[+]Space'
   sleep 1.5
   hide_panel
   bring_front com.apple.finder
@@ -677,7 +683,7 @@ c_ax_tree() {
   local mf="$OUT/ax/manage-saved.txt"
   [[ -s "$mf" ]] || { A menu-command manage.snippets; sleep 1; ax_dump manage-saved || true; }
   for pat in "$MANAGE_TITLE" 'New Snippet' 'Save' 'Name' 'Keyword' 'Text'; do
-    cat "$OUT"/ax/manage-*.txt 2>/dev/null | grep -q -- "$pat" || miss+=("manage:$pat")
+    grep -qF -- "$pat" "$OUT"/ax/manage-*.txt 2>/dev/null || miss+=("manage:$pat")
   done
   ((${#miss[@]} == 0)) || fail "names missing from the AX tree: ${miss[*]}"
   ev "AX tree names present (panel: search field, rows, Actions, Manage; manage: window, New Snippet, Save, form fields)"
