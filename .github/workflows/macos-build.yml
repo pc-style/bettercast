@@ -54,6 +54,7 @@ jobs:
         run: |
           bun run typecheck
           bun test ./src
+          scripts/ci/check-macho-deps.test.sh
           swiftc macos/sol-macOS/lib/AIProcess.swift scripts/test-ai-process.swift -o "$RUNNER_TEMP/test-ai-process"
           "$RUNNER_TEMP/test-ai-process"
 
@@ -104,7 +105,11 @@ jobs:
           echo "== resources"; ls "$app/Contents/Resources" | head -50
           echo "== frameworks"; ls "$app/Contents/Frameworks" || true
           echo "== linked libraries"; otool -L "$exe"
-          if otool -L "$exe" | grep -E "DerivedData|/Users/runner"; then echo "absolute build path linked"; exit 1; fi
+          otool -L "$exe" | scripts/ci/check-macho-deps.sh
+          for fw in "$app"/Contents/Frameworks/*.framework; do
+            bin="$fw/$(basename "$fw" .framework)"
+            echo "== deps: $bin"; otool -L "$bin" | scripts/ci/check-macho-deps.sh
+          done
           echo "== signature"; codesign -dv --verbose=2 "$app" 2>&1
           codesign --verify --deep --strict --verbose=2 "$app"
           echo "== entitlements"; codesign -d --entitlements - "$app" 2>&1 || true
