@@ -49,30 +49,47 @@ func isBlank(_ s: String) -> Bool {
 
 // MARK: - Writing
 
+/// Assemble every representation and privacy marker before publishing.
+/// This only creates an in-memory item; it does not access a pasteboard.
+func makeClipItem(_ data: Data, kind: String, marker: String?, imageFormat: String = "both") throws -> NSPasteboardItem {
+    let item = NSPasteboardItem()
+    switch kind {
+    case "text":
+        guard let text = String(data: data, encoding: .utf8) else { throw SpecError.bad("clip is not UTF-8 text") }
+        guard item.setString(text, forType: .string) else { throw SpecError.bad("cannot set text representation") }
+    case "image":
+        guard ["png", "tiff", "both"].contains(imageFormat) else { throw SpecError.bad("bad image format") }
+        guard let img = decodeImage(data) else { throw SpecError.bad("clip is not a readable image") }
+        if imageFormat != "tiff" {
+            let png = data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? data : try encodePNG(img)
+            guard item.setData(png, forType: .png) else { throw SpecError.bad("cannot set PNG representation") }
+        }
+        if imageFormat != "png" {
+            guard item.setData(try encodeTIFF(img), forType: .tiff) else { throw SpecError.bad("cannot set TIFF representation") }
+        }
+    default:
+        throw SpecError.bad("--kind must be text or image")
+    }
+    if let marker {
+        guard item.setData(Data(), forType: NSPasteboard.PasteboardType(marker)) else {
+            throw SpecError.bad("cannot set clipboard marker")
+        }
+    }
+    return item
+}
+
+private func publishClipItem(_ item: NSPasteboardItem) throws {
+    let pb = NSPasteboard.general
+    pb.clearContents()
+    guard pb.writeObjects([item]) else { throw SpecError.bad("pasteboard write failed") }
+}
+
 /// Put a stored clip on the general pasteboard, tagged with the self marker
 /// so our own watcher skips it. Images get PNG plus a TIFF fallback rep.
 func writeClipToPasteboard(file: String, kind: String) throws {
     let url = URL(fileURLWithPath: file)
     let data = try Data(contentsOf: url)
-    let pb = NSPasteboard.general
-    switch kind {
-    case "text":
-        guard let text = String(data: data, encoding: .utf8) else { throw SpecError.bad("clip is not UTF-8 text") }
-        pb.clearContents()
-        pb.declareTypes([.string, NSPasteboard.PasteboardType(selfMarkerType)], owner: nil)
-        pb.setString(text, forType: .string)
-    case "image":
-        guard let img = decodeImage(data) else { throw SpecError.bad("clip is not a readable image") }
-        let png = data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? data : try encodePNG(img)
-        let tiff = try encodeTIFF(img)
-        pb.clearContents()
-        pb.declareTypes([.png, .tiff, NSPasteboard.PasteboardType(selfMarkerType)], owner: nil)
-        pb.setData(png, forType: .png)
-        pb.setData(tiff, forType: .tiff)
-    default:
-        usage("--kind must be text or image")
-    }
-    pb.setData(Data(), forType: NSPasteboard.PasteboardType(selfMarkerType))
+    try publishClipItem(makeClipItem(data, kind: kind, marker: selfMarkerType))
 }
 
 // MARK: - Commands
@@ -172,33 +189,22 @@ func requireCI() {
 
 /// `debug-pasteboard --file <path> --kind text|image [--extra-type <uti>]`:
 /// put synthetic content on the pasteboard like another app would (no self
-/// marker). Images go on as uncompressed TIFF only, the worst case the
-/// watcher must shrink. `--extra-type` adds e.g. org.nspasteboard.ConcealedType.
+/// marker). Images default to uncompressed TIFF; --image-format png|tiff|both
+/// exercises alternate representations. `--extra-type` adds a privacy marker.
 func runDebugPasteboard(_ args: Args) -> Never {
     requireCI()
     let file = args.required("file")
     let kind = args.required("kind")
     guard let data = FileManager.default.contents(atPath: file) else { fail("read", "cannot read \(file)") }
-    let pb = NSPasteboard.general
-    var types: [NSPasteboard.PasteboardType] = []
-    let extra = args.optional("extra-type").map { NSPasteboard.PasteboardType($0) }
-    pb.clearContents()
-    switch kind {
-    case "text":
-        types = [.string] + (extra.map { [$0] } ?? [])
-        pb.declareTypes(types, owner: nil)
-        pb.setString(String(decoding: data, as: UTF8.self), forType: .string)
-    case "image":
-        guard let img = decodeImage(data), let tiff = try? encodeTIFF(img) else { fail("decode", "not an image: \(file)") }
-        types = [.tiff] + (extra.map { [$0] } ?? [])
-        pb.declareTypes(types, owner: nil)
-        pb.setData(tiff, forType: .tiff)
-        Out.line(["tiff-bytes", String(tiff.count)])
-    default:
-        usage("--kind must be text or image")
+    do {
+        let item = try makeClipItem(data, kind: kind, marker: args.optional("extra-type"),
+                                    imageFormat: args.optional("image-format") ?? "tiff")
+        try publishClipItem(item)
+        if let tiff = item.data(forType: .tiff) { Out.line(["tiff-bytes", String(tiff.count)]) }
+    } catch {
+        fail("fixture-write", "\(error)")
     }
-    if let extra { pb.setData(Data(), forType: extra) }
-    Out.line(["result", "set", String(pb.changeCount)])
+    Out.line(["result", "set", String(NSPasteboard.general.changeCount)])
     exit(Exit.ok)
 }
 

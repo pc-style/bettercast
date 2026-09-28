@@ -30,8 +30,8 @@ func encodePNG(_ image: CGImage) throws -> Data {
     return out as Data
 }
 
-/// Any supported image bytes -> PNG bytes + pixel size. Re-encoding makes
-/// the same pixels from different source formats land on the same hash.
+/// Any supported image bytes -> PNG bytes + pixel size. Container bytes
+/// can differ for equivalent pixels; they are not the clip identity.
 func toPNG(_ data: Data) throws -> EncodedImage {
     guard let img = decodeImage(data) else { throw ImageError.decode }
     return EncodedImage(png: try encodePNG(img), width: img.width, height: img.height)
@@ -94,11 +94,21 @@ func rgbaPixels(_ image: CGImage) -> [UInt8] {
         let ctx = CGContext(
             data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         )!
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
     }
     return buf
+}
+
+/// Identity is dimensions plus sRGB RGBA8 premultiplied pixels in explicit
+/// byte order. Source encoding, metadata, row padding and alpha layout do
+/// not affect it. Include dimensions so equal buffers with different shapes
+/// cannot collide. Fully transparent RGB is normalized by rendering.
+func imagePixelHash(_ image: CGImage) -> String {
+    var content = Data("bettercast-rgba8-srgb-v1:\(image.width)x\(image.height)\0".utf8)
+    content.append(contentsOf: rgbaPixels(image))
+    return sha256Hex(content)
 }
 
 // MARK: - Clip store
@@ -143,11 +153,17 @@ func storeTextClip(_ text: String, clipsDir: URL) throws -> StoredClip {
 
 let thumbnailMaxSide = 256
 
-/// Re-encode as PNG, store `<sha>.png` once plus `<sha>.thumb.png`
+/// Re-encode as PNG, store `<pixel-sha>.png` once plus `<pixel-sha>.thumb.png`
 /// (longest side <= 256 px).
 func storeImageClip(_ source: Data, clipsDir: URL) throws -> StoredClip {
-    let enc = try toPNG(source)
-    let sha = sha256Hex(enc.png)
+    guard let image = decodeImage(source) else { throw ImageError.decode }
+    let sha = imagePixelHash(image)
+    let originalURL = clipsDir.appendingPathComponent("\(sha).png")
+    // Preserve the first encoding. All later representations report its
+    // actual byte count and use it when recreating a missing thumbnail.
+    let png = FileManager.default.fileExists(atPath: originalURL.path)
+        ? try Data(contentsOf: originalURL) : try encodePNG(image)
+    let enc = EncodedImage(png: png, width: image.width, height: image.height)
     let created = try storeOnce(enc.png, sha: sha, ext: "png", clipsDir: clipsDir)
     let thumbURL = clipsDir.appendingPathComponent("\(sha).thumb.png")
     if !FileManager.default.fileExists(atPath: thumbURL.path) {
