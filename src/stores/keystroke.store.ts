@@ -7,9 +7,22 @@ import { isValidCustomSearchEngineUrl } from "widgets/settings/general";
 import { EMOJI_ROW_SIZE } from "./emoji.store";
 import { ItemType, Widget } from "./ui.store";
 import { formatTemporaryResultForClipboard } from "./ui.store.helpers";
+import {
+	type Modifiers,
+	NO_MODIFIERS,
+	type NativeKeyEvent,
+	nextModifiers,
+} from "ui/modifiers";
+import type { KeyHandler } from "ui/keys";
+import type { ClipboardContract } from "contracts/clipboard";
 
 let keyDownListener: EmitterSubscription | undefined;
 let keyUpListener: EmitterSubscription | undefined;
+let showListener: EmitterSubscription | undefined;
+// Handlers registered by mounted widgets/overlays, newest last. Routing walks from the
+// newest down and stops at the first handler that returns true.
+const keyHandlers: KeyHandler[] = [];
+let hideListener: EmitterSubscription | undefined;
 
 function isImageClipboardPath(path: string | null | undefined) {
 	if (!path) {
@@ -32,11 +45,36 @@ export const createKeystrokeStore = (root: IRootStore) => {
 		commandPressed: false,
 		shiftPressed: false,
 		controlPressed: false,
+		get modifiers(): Modifiers {
+			return {
+				commandPressed: store.commandPressed,
+				shiftPressed: store.shiftPressed,
+				controlPressed: store.controlPressed,
+			};
+		},
 
 		simulateEnter: () => {
-			store.keyDown({ keyCode: 36, meta: false, shift: false });
+			store.dispatchKey({ keyCode: 36, meta: false, shift: false });
 		},
-		keyDown: async ({
+		/** Clear modifier state; used when the panel shows/hides and keyUp may never arrive. */
+		resetModifiers: () => {
+			Object.assign(store, NO_MODIFIERS);
+		},
+		/** Native keyDown: resync modifiers from the event's own flags, then route the key. */
+		keyDown: (event: NativeKeyEvent & { meta: boolean; shift: boolean }) => {
+			Object.assign(store, nextModifiers(store.modifiers, event, "down"));
+			return store.dispatchKey(event);
+		},
+		/** Register a key handler for a mounted widget or overlay; returns the unregister function. */
+		pushKeyHandler: (handler: KeyHandler) => {
+			keyHandlers.push(handler);
+			return () => {
+				const index = keyHandlers.lastIndexOf(handler);
+				if (index >= 0) keyHandlers.splice(index, 1);
+			};
+		},
+		/** Route a key without touching modifier state (also used for synthetic keys). */
+		dispatchKey: async ({
 			keyCode,
 			meta,
 			shift,
@@ -45,12 +83,18 @@ export const createKeystrokeStore = (root: IRootStore) => {
 			meta: boolean;
 			shift: boolean;
 		}) => {
+			if (!root.ui.confirmDialogShown) {
+				const event = { keyCode, meta, shift, control: store.controlPressed };
+				for (let i = keyHandlers.length - 1; i >= 0; i--) {
+					if (keyHandlers[i](event)) return;
+				}
+			}
 			switch (keyCode) {
 				// "j" / "n" keys - simulate a down key press
 				case 38:
 				case 45: {
 					if (store.controlPressed) {
-						store.keyDown({ keyCode: 125, meta: false, shift: false });
+						store.dispatchKey({ keyCode: 125, meta: false, shift: false });
 					}
 					break;
 				}
@@ -58,7 +102,7 @@ export const createKeystrokeStore = (root: IRootStore) => {
 				case 40:
 				case 35: {
 					if (store.controlPressed) {
-						store.keyDown({ keyCode: 126, meta: false, shift: false });
+						store.dispatchKey({ keyCode: 126, meta: false, shift: false });
 					}
 					break;
 				}
@@ -158,36 +202,41 @@ export const createKeystrokeStore = (root: IRootStore) => {
 							break;
 						}
 						case Widget.CLIPBOARD: {
-							if (root.clipboard.clipboardItems.length === 0) {
-								return;
-							}
-
+							// The clipboard widget routes keys itself; this is the fallback path.
 							const entry =
 								root.clipboard.clipboardItems[root.ui.selectedIndex];
+							if (!entry) return;
+
+							const repository = root.clipboard as unknown as Partial<ClipboardContract>;
+							if (typeof repository.act === "function") {
+								// Repository resolves the full payload, file references, focus guard
+								// and self-capture suppression; list entries are previews only.
+								void repository
+									.act(String(entry.id), shift ? "pastePlain" : "paste")
+									.then((result) => {
+										if (result.status === "failed" || result.status === "focusChanged") {
+											solNative.showToast(result.message, "error");
+										}
+									});
+								break;
+							}
 
 							const originalIndex = root.clipboard.clipboardItems.findIndex(
 								(e) => entry === e,
 							);
-
 							root.clipboard.popToTop(originalIndex);
-
-							if (entry) {
-								if (meta) {
-									try {
-										Linking.openURL(entry.text);
-									} catch (e) {
-										// console.log('could not open in browser')
-									}
-									solNative.hideWindow();
-								} else {
-									if (isImageClipboardPath(entry.url)) {
-										solNative.pasteImageToFrontmostApp(entry.url as string);
-									} else {
-										solNative.pasteToFrontmostApp(entry.text);
-									}
+							if (meta) {
+								try {
+									Linking.openURL(entry.text);
+								} catch (e) {
+									// console.log('could not open in browser')
 								}
+								solNative.hideWindow();
+							} else if (isImageClipboardPath(entry.url)) {
+								solNative.pasteImageToFrontmostApp(entry.url as string);
+							} else {
+								solNative.pasteToFrontmostApp(entry.text);
 							}
-
 							break;
 						}
 
@@ -830,59 +879,24 @@ export const createKeystrokeStore = (root: IRootStore) => {
 				//   break
 				// }
 
-				// meta key
-				case 55: {
-					store.commandPressed = true;
-					break;
-				}
-
-				// shift key
-				case 60: {
-					store.shiftPressed = true;
-					break;
-				}
-
-				// control key
-				case 59: {
-					store.controlPressed = true;
-					break;
-				}
+				// meta (55), shift (60) and control (59) state is tracked by keyDown/keyUp via nextModifiers
 			}
 		},
-		keyUp: async ({
-			keyCode,
-		}: {
-			key: string;
-			keyCode: number;
-			meta: boolean;
-		}) => {
-			switch (keyCode) {
-				case 55:
-					store.commandPressed = false;
-					break;
-
-				case 60: {
-					store.shiftPressed = false;
-					break;
-				}
-
-				case 59: {
-					store.controlPressed = false;
-					break;
-				}
-
-				default:
-					break;
-			}
+		keyUp: async (event: NativeKeyEvent & { key: string; meta: boolean }) => {
+			Object.assign(store, nextModifiers(store.modifiers, event, "up"));
 		},
 		cleanUp: () => {
 			keyDownListener?.remove();
 			keyUpListener?.remove();
+			showListener?.remove();
+			hideListener?.remove();
 		},
 	});
 
 	keyDownListener = solNative.addListener("keyDown", store.keyDown);
 	keyUpListener = solNative.addListener("keyUp", store.keyUp);
+	showListener = solNative.addListener("onShow", store.resetModifiers);
+	hideListener = solNative.addListener("onHide", store.resetModifiers);
 
 	return store;
 };

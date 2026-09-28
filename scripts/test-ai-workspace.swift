@@ -12,13 +12,15 @@ import Darwin
           if object["id"] == nil { continue }
           requests.append(object)
           if requests.count == 2 {
+            let responses = requests.reversed().map { request -> [String: Any] in
+              ["jsonrpc": "2.0", "id": request["id"]!, "result": request["method"]!]
+            }
             let lines: [[String: Any]] = [
               ["jsonrpc": "2.0", "method": "progress", "params": [:]],
-              ["jsonrpc": "2.0", "id": requests[1]["id"]!, "result": "second"],
-              ["jsonrpc": "2.0", "id": requests[0]["id"]!, "result": "first"],
-            ]
+            ] + responses
             let output = try! lines.map { String(data: try! JSONSerialization.data(withJSONObject: $0), encoding: .utf8)! }.joined(separator: "\n") + "\n"
             FileHandle.standardOutput.write(Data(output.utf8))
+            requests.removeAll()
           }
         }
         return
@@ -38,6 +40,7 @@ import Darwin
 
     let key = Data(repeating: 7, count: 32), wrongKey = Data(repeating: 8, count: 32)
     let encrypted = try LocalVault.seal(Data("private".utf8), key: key)
+    precondition(encrypted.range(of: Data("private".utf8)) == nil)
     let decrypted = try LocalVault.open(encrypted, key: key)
     precondition(decrypted == Data("private".utf8))
     do { _ = try LocalVault.open(encrypted, key: wrongKey); fatalError("wrong vault key accepted") } catch { }
@@ -50,11 +53,16 @@ import Darwin
     let notification = Data(#"{"jsonrpc":"2.0","method":"ready"}"#.utf8)
     let notified = try await AIWorkspace.stdioRequest(sessionID: "rpc", json: notification, timeout: 1)
     precondition(notified.isEmpty)
-    async let first = AIWorkspace.stdioRequest(sessionID: "rpc", json: Data(#"{"jsonrpc":"2.0","id":1,"method":"one"}"#.utf8), timeout: 2)
-    async let second = AIWorkspace.stdioRequest(sessionID: "rpc", json: Data(#"{"jsonrpc":"2.0","id":"two","method":"two"}"#.utf8), timeout: 2)
+    let largeParameter = String(repeating: "x", count: 100_000)
+    let firstRequest = try JSONSerialization.data(withJSONObject: ["jsonrpc": "2.0", "id": 1, "method": "one", "params": [largeParameter]])
+    let secondRequest = try JSONSerialization.data(withJSONObject: ["jsonrpc": "2.0", "id": "two", "method": "two", "params": [largeParameter]])
+    async let first = AIWorkspace.stdioRequest(sessionID: "rpc", json: firstRequest, timeout: 2)
+    async let second = AIWorkspace.stdioRequest(sessionID: "rpc", json: secondRequest, timeout: 2)
     let responses = try await (first, second)
-    precondition(String(data: responses.0, encoding: .utf8)!.contains("first"))
-    precondition(String(data: responses.1, encoding: .utf8)!.contains("second"))
+    let firstObject = try JSONSerialization.jsonObject(with: responses.0) as! [String: Any]
+    let secondObject = try JSONSerialization.jsonObject(with: responses.1) as! [String: Any]
+    precondition(firstObject["result"] as? String == "one")
+    precondition(secondObject["result"] as? String == "two")
 
     try AIWorkspace.openStdioSession(id: "stubborn", executable: executable, arguments: ["stubborn"])
     let start = Date()

@@ -27,7 +27,7 @@ export const Key: FC<IProps> = ({ title, primary = false, style, symbol }) => {
 			{!!symbol && (
 				<View
 					className={clsx(
-						"w-[20px] h-[20px] items-center justify-center rounded ",
+						"min-w-[20px] h-[20px] px-1 items-center justify-center rounded",
 						{
 							"bg-neutral-100 dark:bg-neutral-700": !primary,
 							"bg-accent dark:bg-accent": primary,

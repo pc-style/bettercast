@@ -248,6 +248,7 @@ enum LocalVault {
 private final class StreamDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
   private let limit: Int; private var count = 0; private let continuation: AsyncThrowingStream<Data, Error>.Continuation
   private let endpoint: URL; private let finished: () -> Void; private var session: URLSession?
+  private var terminalError: Error?
   private let onResponse: ((Int, [String: String]) -> Void)?
   init(limit: Int, endpoint: URL, continuation: AsyncThrowingStream<Data, Error>.Continuation, onResponse: ((Int, [String: String]) -> Void)?, finished: @escaping () -> Void) {
     self.limit = limit; self.endpoint = endpoint; self.continuation = continuation; self.finished = finished; self.onResponse = onResponse
@@ -255,8 +256,8 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate, URLSession
   func retain(session: URLSession) { self.session = session }
   func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                   newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+    terminalError = AIWorkspaceError.unapprovedEndpoint
     completionHandler(nil)
-    continuation.finish(throwing: AIWorkspaceError.unapprovedEndpoint)
   }
   func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
     if let http = response as? HTTPURLResponse {
@@ -264,26 +265,49 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate, URLSession
       for (key, value) in http.allHeaderFields { headers[String(describing: key).lowercased()] = String(describing: value) }
       onResponse?(http.statusCode, headers)
     }
-    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { completionHandler(.cancel); continuation.finish(throwing: AIWorkspaceError.protocolError("HTTP response rejected")); return }
+    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+      terminalError = AIWorkspaceError.protocolError("HTTP response rejected")
+      completionHandler(.cancel); return
+    }
     completionHandler(.allow)
   }
-  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) { count += data.count; if count > limit { dataTask.cancel(); continuation.finish(throwing: AIWorkspaceError.limitExceeded("HTTP output too large")) } else { continuation.yield(data) } }
-  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) { finished(); self.session?.finishTasksAndInvalidate(); if let error { continuation.finish(throwing: (error as NSError).code == NSURLErrorCancelled ? AIWorkspaceError.cancelled : error) } else { continuation.finish() } }
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    guard terminalError == nil else { return }
+    count += data.count
+    if count > limit { terminalError = AIWorkspaceError.limitExceeded("HTTP output too large"); dataTask.cancel() }
+    else { continuation.yield(data) }
+  }
+  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    finished(); self.session?.finishTasksAndInvalidate()
+    if let terminalError { continuation.finish(throwing: terminalError) }
+    else if let error { continuation.finish(throwing: (error as NSError).code == NSURLErrorCancelled ? AIWorkspaceError.cancelled : error) }
+    else { continuation.finish() }
+  }
 }
 
 private final class StdioSession: @unchecked Sendable {
   private struct Pending { let continuation: CheckedContinuation<Data, Error>; let timer: DispatchSourceTimer }
   private let process = Process(), input = Pipe(), output = Pipe(), error = Pipe(), maxOutputBytes: Int
   private let queue = DispatchQueue(label: "bettercast.ai.stdio")
+  private let writeQueue = DispatchQueue(label: "bettercast.ai.stdio.write")
   private var buffer = Data(), pending: [String: Pending] = [:], closed = false
   private var ignoredNotificationBytes = 0, stderrBytes = 0
   init(executable: URL, arguments: [String], maxOutputBytes: Int) throws {
     self.maxOutputBytes = maxOutputBytes; process.executableURL = executable; process.arguments = arguments
     process.standardInput = input; process.standardOutput = output; process.standardError = error
+    guard fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) == 0 else {
+      throw AIWorkspaceError.processFailed("Could not protect stdin pipe")
+    }
     try process.run()
     try? output.fileHandleForWriting.close(); try? error.fileHandleForWriting.close()
-    output.fileHandleForReading.readabilityHandler = { [weak self] handle in self?.queue.async { self?.consume(handle.availableData) } }
-    error.fileHandleForReading.readabilityHandler = { [weak self] handle in self?.queue.async { self?.consumeError(handle.availableData) } }
+    output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+      let data = handle.availableData
+      self?.queue.async { self?.consume(data) }
+    }
+    error.fileHandleForReading.readabilityHandler = { [weak self] handle in
+      let data = handle.availableData
+      self?.queue.async { self?.consumeError(data) }
+    }
     process.terminationHandler = { [weak self] _ in self?.queue.async { self?.failAll(AIWorkspaceError.processFailed("Process exited")) } }
   }
   func request(json: Data, timeout: TimeInterval) async throws -> Data {
@@ -314,9 +338,19 @@ private final class StdioSession: @unchecked Sendable {
   }
   private func write(_ json: Data, completion: CheckedContinuation<Data, Error>?) {
     var line = json; line.append(0x0A)
-    DispatchQueue.global().async { [weak self] in
-      do { try self?.input.fileHandleForWriting.write(contentsOf: line); completion?.resume(returning: Data()) }
-      catch { self?.queue.async { self?.failAndClose(AIWorkspaceError.processFailed("stdin closed")) }; completion?.resume(throwing: error) }
+    writeQueue.async { [weak self] in
+      guard let self else {
+        completion?.resume(throwing: AIWorkspaceError.processFailed("Session closed")); return
+      }
+      do {
+        try self.input.fileHandleForWriting.write(contentsOf: line)
+        completion?.resume(returning: Data())
+      } catch {
+        // Request continuations are owned by pending/failAll. Only notifications
+        // carry their continuation into this write operation.
+        self.queue.async { self.failAndClose(AIWorkspaceError.processFailed("stdin closed")) }
+        completion?.resume(throwing: AIWorkspaceError.processFailed("stdin closed"))
+      }
     }
   }
   private func consume(_ chunk: Data) {

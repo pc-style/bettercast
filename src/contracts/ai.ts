@@ -174,7 +174,33 @@ export interface AIContract {
 	deleteConversation?(id: string): Promise<void>;
 	/** Adds the frontmost app's selected text as an attachment (origin "selection"), or null if none. */
 	captureSelection?(): Promise<Attachment | null>;
+	/**
+	 * Save a user-configured compatible endpoint. endpoint must be https:// or loopback http://.
+	 * apiKey is write-only (native Keychain), never persisted in JSON or read back.
+	 */
+	configureProvider?(input: CompatibleProviderInput): Promise<void>;
 }
+
+export type CompatibleProviderInput = {
+	id: "compatible";
+	label: string;
+	endpoint: string;
+	modelId: string;
+	images: boolean;
+	tools: boolean;
+	apiKey?: string;
+};
+
+export type McpServerInput = {
+	id: string;
+	name: string;
+	transport: "http" | "stdio";
+	/** http: URL. stdio: absolute executable path (trusted, unrestricted local code). */
+	target: string;
+	args?: string[];
+	/** Write-only; stored in Keychain. */
+	apiKey?: string;
+};
 
 export type McpServerInfo = {
 	id: string;
@@ -200,6 +226,9 @@ export type Grant = {
 export interface McpContract {
 	servers: McpServerInfo[];
 	grants: Grant[];
+	/** Saves the server disabled; nothing starts until setServerEnabled(id, true). */
+	addServer?(input: McpServerInput): Promise<void>;
+	/** Enabling runs discovery (starts stdio process / contacts http endpoint) on explicit request. */
 	setServerEnabled(id: string, enabled: boolean): Promise<void>;
 	setToolEnabled(serverId: string, tool: string, enabled: boolean): void;
 	revokeGrant(id: string): void;
