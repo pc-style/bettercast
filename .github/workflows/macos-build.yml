@@ -149,6 +149,15 @@ jobs:
         timeout-minutes: 2
         run: python3 scripts/ci/smoke-app.py "$OUT_DIR/Bettercast.app" "$RUNNER_TEMP/native-smoke"
 
+      - name: Disposable onboarded launcher smoke
+        timeout-minutes: 2
+        run: |
+          # Only the disposable hosted runner's app state; no capture, provider,
+          # shortcut, permissions, or production-only test hooks are configured.
+          mkdir -p "$HOME/.config/bettercast"
+          printf '%s\n' '{"onboardingStep":"v1_completed"}' > "$HOME/.config/bettercast/state.json"
+          python3 scripts/ci/smoke-app.py "$OUT_DIR/Bettercast.app" "$RUNNER_TEMP/native-smoke/onboarded"
+
       - name: Upload native smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
