@@ -76,13 +76,19 @@ with_timeout() { # secs cmd...
   wait "$pid"
 }
 
-summarize() { # prints totals; returns 1 when a required check failed
-  python3 - "$E2E_OUT/checks.ndjson" <<'PY'
-import json, sys
-rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+summarize() { # prints totals; returns 1 when a required check failed or an expected check never ran
+  python3 - "$E2E_OUT/checks.ndjson" "${E2E_EXPECT:-}" "$E2E_OPTIONAL" <<'PY'
+import json, os, sys
+path, expect, optional = sys.argv[1], sys.argv[2].split(), sys.argv[3].split(",")
+rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()] if os.path.exists(path) else []
 # the last record for an id wins (a re-run replaces an earlier result)
 last = {}
 for r in rows: last[r["id"]] = r
+# E2E_EXPECT lists checks that must have run: a skipped step (an earlier
+# failure) is a missing result, never a silent pass.
+for cid in expect:
+    if cid not in last:
+        last[cid] = {"id": cid, "required": cid not in optional, "status": "missing", "evidence": "never ran (an earlier step failed or was skipped)"}
 bad = [r for r in last.values() if r["required"] and r["status"] != "pass"]
 opt = [r for r in last.values() if not r["required"] and r["status"] != "pass"]
 print(f"checks: {len(last)}  passed: {sum(r['status']=='pass' for r in last.values())}  required failures: {len(bad)}  optional failures: {len(opt)}")

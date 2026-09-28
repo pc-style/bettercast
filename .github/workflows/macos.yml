@@ -114,6 +114,7 @@ jobs:
           swiftc -O -o "$E2E_OUT/bin/e2e-tool" scripts/e2e/tools/e2e-tool.swift
 
       - name: Grant TCC permissions (Accessibility, PostEvent, ScreenCapture, AppleEvents)
+        continue-on-error: true
         run: |
           app="$PKG_DIR/Bettercast.app"
           scripts/e2e/tcc-grant.sh "$E2E_OUT" \
@@ -178,6 +179,13 @@ jobs:
 
       - name: Gate on required checks
         if: always()
+        env:
+          E2E_EXPECT: >-
+            helper_build helper_selftest native_test native_check_strict core_scenarios harness_keys
+            build_automation package helper_os bundle permissions keys_automation readiness
+            launcher_command launcher_hotkey keys_real calculator snippet_create snippet_paste_textedit
+            snippet_edit snippet_delete clipboard_text clipboard_concealed clipboard_image_dedupe
+            sequential_paste ai_fake hotkey_change ax_tree reference_canvas desktop_capture no_errors
         run: |
           # shellcheck source=/dev/null
           source scripts/e2e/lib.sh

@@ -37,7 +37,7 @@ import {
   noConfirm,
 } from "./model.ts";
 import { appKey, commandKey, hits, snippetKey, CMD_CLIPBOARD, CMD_MANAGE, CMD_NEW_SNIPPET, CMD_QUEUE, CMD_QUIT } from "./search.ts";
-import { actionItems, isImagePath, selectedHit, thumbWindowClipIds } from "./viewmodel.ts";
+import { actionItems, isImagePath, selectedHit, thumbWindowClipIds, vmLatestImageClipId } from "./viewmodel.ts";
 import { actionForToken, actionTitle, checkHotkey, defaultHotkeys, hotkeyFromKey, hotkeyLabel, hotkeySpec, withHotkey } from "./hotkeys.ts";
 import { parseLine } from "./protocol.ts";
 import { MAX_ITEMS_LIMIT, MAX_RETENTION_DAYS, MIN_ITEMS_LIMIT, clearUnpinned, clipPath, thumbPath, fileInUse, filePath, kindWord, pruneClips, pruneQueue, queueDeletes, recordClip, removeClip, togglePin, touchClip, type PruneResult } from "./clipboard.ts";
@@ -449,6 +449,10 @@ function runAction(model: Model, index: number): Step {
       return step(m, { kind: "ai_copy" });
     case "ai_new":
       return step(m, { kind: "ai_new" });
+    case "attach_latest":
+      return step(m, { kind: "ai_attach_latest" });
+    case "attach_image":
+      return step(m, { kind: "ai_attach_clip", attachClipId: vmLatestImageClipId(model) | 0 });
     case "copy":
       if (h === null) return just(m);
       switch (h.kind) {

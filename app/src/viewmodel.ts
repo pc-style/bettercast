@@ -50,7 +50,7 @@ export interface ResultRow {
 
 export type ActionVerb =
   | "run" | "open" | "paste" | "copy" | "queue" | "unqueue" | "pin" | "delete" | "edit" | "ask_ai" | "manage"
-  | "ai_paste" | "ai_copy" | "ai_new";
+  | "ai_paste" | "ai_copy" | "ai_new" | "attach_latest" | "attach_image";
 
 export interface ActionItem {
   readonly verb: ActionVerb;
@@ -317,13 +317,20 @@ const MANAGE_ACTION: ActionItem = { verb: "manage", title: utf8Bytes("Manage Bet
 /// item is always the row's primary (Return) action.
 export function actionItems(model: Model): readonly ActionItem[] {
   if (model.screen === "ai") {
-    if (model.ai.answer.length === 0) return [MANAGE_ACTION];
-    return [
-      { verb: "ai_paste", title: utf8Bytes("Paste Answer"), hint: utf8Bytes("↩") },
-      { verb: "ai_copy", title: utf8Bytes("Copy Answer"), hint: EMPTY },
-      { verb: "ai_new", title: utf8Bytes("New Chat"), hint: EMPTY },
-      MANAGE_ACTION,
-    ];
+    const out: ActionItem[] = [];
+    if (model.ai.answer.length > 0) {
+      out.push({ verb: "ai_paste", title: utf8Bytes("Paste Answer"), hint: utf8Bytes("↩") });
+      out.push({ verb: "ai_copy", title: utf8Bytes("Copy Answer"), hint: EMPTY });
+      out.push({ verb: "ai_new", title: utf8Bytes("New Chat"), hint: EMPTY });
+    }
+    // The same attach commands as the header buttons, reachable by keyboard.
+    if (model.clips.length > 0) {
+      const latestIsImage = model.clips[0].kind === "image";
+      out.push({ verb: "attach_latest", title: latestIsImage ? utf8Bytes("Attach Clipboard Image") : utf8Bytes("Attach Clipboard Text"), hint: EMPTY });
+      if (!latestIsImage && vmLatestImageClipId(model) > 0) out.push({ verb: "attach_image", title: utf8Bytes("Attach Latest Image"), hint: EMPTY });
+    }
+    out.push(MANAGE_ACTION);
+    return out;
   }
   const h = selectedHit(model);
   if (h === null) return [MANAGE_ACTION];

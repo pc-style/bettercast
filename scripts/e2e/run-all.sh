@@ -68,7 +68,7 @@ CONFIRM_DELETE_BTN='role=button name="Delete"'
 NEW_SNIPPET_BTN='role=button name="New Snippet"'
 RECORD_LAUNCHER_BTN='role=button name="Record shortcut for Open Bettercast"'
 ACTION_QUEUE='Add to Paste Queue'
-ACTION_DELETE_CLIP='Delete'
+ACTION_DELETE_CLIP='Delete…'
 ACTION_ATTACH='Attach Clipboard Image'
 # BETTERCAST_AI_FAKE=1 + provider "fake": helper/AI.swift runFake streams
 # "Fake answer.\nPrompt: <n> bytes.\nAttachments: <k> - <name> (<type>, <n> bytes).\nEcho: <prompt>".
@@ -494,6 +494,9 @@ c_clipboard_text() {
   AS "role=listitem name=\"$CLIP1, Clipboard\".*$SEL"
   A menu-command actions.toggle
   select_action "$ACTION_DELETE_CLIP"
+  AS "$CONFIRM_DELETE_BTN"
+  snap b09-clip-delete-confirm
+  A widget-key "$V" enter
   AS_ABSENT "role=listitem name=\"$CLIP1, Clipboard\""
   ev "Delete action removed the clip"
   hide_panel

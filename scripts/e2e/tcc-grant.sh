@@ -45,12 +45,16 @@ now="$(date +%s)"
 # Name the columns explicitly (macOS 14/15 layout); columns added by a
 # newer macOS keep their defaults. If the full row fails, try the minimal
 # older layout, then report.
+# sqlite3 on a TCC db (sudo for the system db). No arrays: macOS bash 3.2
+# treats an empty "${arr[@]}" as unbound under set -u.
+db_sql() { # db sql
+  if [[ "$1" == "$sys_db" ]]; then sudo sqlite3 "$1" "$2"; else sqlite3 "$1" "$2"; fi
+}
 insert_row() { # db service client client_type indirect_type indirect_id
-  local db="$1" service="$2" client="$3" ctype="$4" itype="$5" iid="$6" sudo_cmd=()
-  [[ "$db" == "$sys_db" ]] && sudo_cmd=(sudo)
+  local db="$1" service="$2" client="$3" ctype="$4" itype="$5" iid="$6"
   local c=${client//\'/\'\'}
-  "${sudo_cmd[@]}" sqlite3 "$db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified, pid, pid_version, boot_uuid, last_reminded) VALUES ('$service', '$c', $ctype, 2, 4, 1, NULL, NULL, $itype, '$iid', NULL, 0, $now, NULL, NULL, 'UNUSED', $now);" 2>>"$log" && return 0
-  "${sudo_cmd[@]}" sqlite3 "$db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier, flags, last_modified) VALUES ('$service', '$c', $ctype, 2, 4, 1, '$iid', 0, $now);" 2>>"$log"
+  db_sql "$db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified, pid, pid_version, boot_uuid, last_reminded) VALUES ('$service', '$c', $ctype, 2, 4, 1, NULL, NULL, $itype, '$iid', NULL, 0, $now, NULL, NULL, 'UNUSED', $now);" 2>>"$log" && return 0
+  db_sql "$db" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, indirect_object_identifier, flags, last_modified) VALUES ('$service', '$c', $ctype, 2, 4, 1, '$iid', 0, $now);" 2>>"$log"
 }
 
 sys_ok=1
