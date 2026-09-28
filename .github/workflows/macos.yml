@@ -1,0 +1,184 @@
+name: macOS build and e2e
+
+# Hosted macOS is the source of truth for Bettercast builds: it compiles
+# the helper and the app, packages the ad-hoc signed .app + DMG, and runs
+# the end-to-end suite against the PACKAGED app in the runner's GUI
+# session (real hotkeys, pasteboard, TextEdit paste, AX tree, screenshots).
+
+on:
+  push:
+    branches: [v0-native]
+  workflow_dispatch:
+    inputs:
+      optional_checks:
+        description: "Comma-separated e2e check ids to report without failing the job"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: 0.16.0
+  # sha256 of zig-aarch64-macos-0.16.0.tar.xz (ziglang.org/download/index.json)
+  ZIG_SHA256: b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
+  NATIVE_SDK_VERSION: 0.10.1
+  E2E_OPTIONAL: ${{ inputs.optional_checks }}
+
+jobs:
+  build-e2e:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Prepare output folders
+        run: |
+          echo "E2E_OUT=$RUNNER_TEMP/e2e-out" >> "$GITHUB_ENV"
+          echo "PKG_DIR=$GITHUB_WORKSPACE/app/zig-out/package" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/e2e-out/logs"
+          sw_vers; uname -m; echo "image: ${ImageOS:-?} ${ImageVersion:-?}"; csrutil status || true
+
+      - name: Cache Zig global cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zig
+          key: zig-${{ env.ZIG_VERSION }}-native-${{ env.NATIVE_SDK_VERSION }}-${{ hashFiles('app/app.json') }}
+          restore-keys: zig-${{ env.ZIG_VERSION }}-native-${{ env.NATIVE_SDK_VERSION }}-
+
+      - name: Install Zig ${{ env.ZIG_VERSION }} (checksum verified)
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o zig.tar.xz "https://ziglang.org/download/$ZIG_VERSION/zig-aarch64-macos-$ZIG_VERSION.tar.xz"
+          echo "$ZIG_SHA256  zig.tar.xz" | shasum -a 256 -c -
+          tar xf zig.tar.xz
+          echo "$RUNNER_TEMP/zig-aarch64-macos-$ZIG_VERSION" >> "$GITHUB_PATH"
+
+      - name: Install Native SDK CLI ${{ env.NATIVE_SDK_VERSION }}
+        run: |
+          set -euo pipefail
+          npm install -g "@native-sdk/cli@$NATIVE_SDK_VERSION"
+          zig version
+          native version
+
+      - name: Build helper
+        run: scripts/e2e/check.sh helper_build scripts/build-helper.sh
+
+      - name: Helper selftest
+        run: scripts/e2e/check.sh helper_selftest app/assets/bin/bettercast-helper selftest
+
+      # `native test` first: it refreshes the model contract `native check` reads.
+      - name: native test
+        continue-on-error: true
+        run: scripts/e2e/check.sh native_test bash -c 'cd app && native test'
+
+      - name: native check --strict
+        continue-on-error: true
+        run: scripts/e2e/check.sh native_check_strict bash -c 'cd app && native check --strict'
+
+      - name: Core scenarios (native dev --core, headless)
+        continue-on-error: true
+        run: scripts/e2e/check.sh core_scenarios bash -c 'cd app && node test/core/run.mjs'
+
+      - name: Headless keyboard harness
+        continue-on-error: true
+        run: scripts/e2e/check.sh harness_keys scripts/harness-test.sh
+
+      - name: Build (ReleaseFast, automation enabled)
+        run: scripts/e2e/check.sh build_automation bash -c 'cd app && native build -Dautomation=true'
+
+      - name: Package .app + DMG (ad-hoc signed)
+        run: |
+          set -euo pipefail
+          scripts/e2e/check.sh package scripts/package-app.sh "$PKG_DIR" --dmg
+          test -x "$PKG_DIR/Bettercast.app/Contents/Resources/assets/bin/bettercast-helper" || {
+            echo "helper missing from the bundle"; find "$PKG_DIR/Bettercast.app/Contents/Resources" -maxdepth 3 | head -50; exit 1; }
+          dmg="$(find "$PKG_DIR" -maxdepth 1 -name '*.dmg' | head -n 1)"
+          test -n "$dmg"
+          ditto -c -k --keepParent "$PKG_DIR/Bettercast.app" "$PKG_DIR/Bettercast.app.zip"
+          echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
+          ls -la "$PKG_DIR"
+
+      - name: Build e2e tool
+        run: |
+          mkdir -p "$E2E_OUT/bin"
+          swiftc -O -o "$E2E_OUT/bin/e2e-tool" scripts/e2e/tools/e2e-tool.swift
+
+      - name: Grant TCC permissions (Accessibility, PostEvent, ScreenCapture, AppleEvents)
+        run: |
+          app="$PKG_DIR/Bettercast.app"
+          scripts/e2e/tcc-grant.sh "$E2E_OUT" \
+            dev.pcstyle.bettercast \
+            "$app/Contents/MacOS/bettercast" \
+            "$app/Contents/Resources/assets/bin/bettercast-helper" \
+            "$E2E_OUT/bin/e2e-tool" \
+            "$(command -v native)" "$(command -v node)"
+
+      - name: Helper OS-path tests (pasteboard, hotkeys, paste into TextEdit)
+        continue-on-error: true
+        run: scripts/e2e/check.sh helper_os helper/ci-test.sh "$PKG_DIR/Bettercast.app/Contents/Resources/assets/bin/bettercast-helper" "$E2E_OUT/helper"
+
+      - name: End-to-end suite (packaged app)
+        id: e2e
+        continue-on-error: true
+        run: scripts/e2e/run-all.sh "$PKG_DIR/Bettercast.app" "$E2E_OUT"
+
+      - name: Write manifest
+        if: always()
+        run: |
+          scripts/e2e/write-manifest.sh "$E2E_OUT" "${DMG_PATH:-}" "$PKG_DIR/Bettercast.app.zip"
+          cp "$E2E_OUT/manifest.json" "$PKG_DIR/manifest.json" 2>/dev/null || true
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          m = json.load(open(os.path.join(os.environ["E2E_OUT"], "manifest.json")))
+          print(f"### Bettercast {m['git']['sha'][:12]} on {m['runner']['image']} ({m['runner']['macos']})\n")
+          print("| check | required | status | evidence |\n|---|---|---|---|")
+          for c in m["checks"]:
+              ev = c["evidence"].replace("|", "\\|").replace("\n", " ")[:220]
+              print(f"| {c['id']} | {'yes' if c['required'] else 'no'} | {c['status']} | {ev} |")
+          PY
+
+      - name: Upload app (DMG, zipped .app, manifest)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bettercast-app-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            app/zig-out/package/*.dmg
+            app/zig-out/package/Bettercast.app.zip
+            app/zig-out/package/manifest.json
+
+      - name: Upload e2e evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bettercast-e2e-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/e2e-out/manifest.json
+            ${{ runner.temp }}/e2e-out/checks.ndjson
+            ${{ runner.temp }}/e2e-out/image-bytes.json
+            ${{ runner.temp }}/e2e-out/tcc.txt
+            ${{ runner.temp }}/e2e-out/logs/
+            ${{ runner.temp }}/e2e-out/snapshots/
+            ${{ runner.temp }}/e2e-out/reference-canvas/
+            ${{ runner.temp }}/e2e-out/desktop-capture/
+            ${{ runner.temp }}/e2e-out/ax/
+            ${{ runner.temp }}/e2e-out/helper/
+
+      - name: Gate on required checks
+        if: always()
+        run: |
+          # shellcheck source=/dev/null
+          source scripts/e2e/lib.sh
+          summarize
