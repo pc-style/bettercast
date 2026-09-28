@@ -3,6 +3,7 @@ import type { IRootStore } from "../store";
 import type {
 	AIContract,
 	Attachment,
+	AttachmentPreview,
 	ApprovalScope,
 	ConversationSummary,
 	Draft,
@@ -633,6 +634,21 @@ export function createAIStore(root: IRootStore) {
 				(item) => item.id !== id,
 			);
 			void persist().catch(() => {});
+		},
+		attachmentPreview(id: string): AttachmentPreview | null {
+			if (!store.draft.attachments.some((item) => item.id === id)) return null;
+			const content = attachmentContents[id];
+			if (content?.kind === "text" && typeof content.text === "string")
+				return {
+					text: content.text.slice(0, 6000),
+					truncated: content.text.length > 6000,
+				};
+			if (content?.kind === "image" && content.data && content.mimeType)
+				return {
+					imageUri: `data:${content.mimeType};base64,${content.data}`,
+					truncated: false,
+				};
+			return null;
 		},
 		approve(callId: string, scope: ApprovalScope) {
 			if (scope !== "once" || store.pendingApproval?.call.id !== callId) return;

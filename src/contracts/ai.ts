@@ -57,6 +57,13 @@ export type Draft = {
 	toolsEnabled: boolean;
 };
 
+export type AttachmentPreview = {
+	text?: string;
+	imageUri?: string;
+	/** Only the display is shortened; sending still uses the loaded content. */
+	truncated: boolean;
+};
+
 export type Citation = {
 	url: string;
 	title?: string;
@@ -159,6 +166,8 @@ export interface AIContract {
 		bytes?: number;
 	}): Promise<Attachment>;
 	removeAttachment(id: string): void;
+	/** Preview already-loaded draft content; never reads additional files or history. */
+	attachmentPreview?(id: string): AttachmentPreview | null;
 	approve(callId: string, scope: ApprovalScope): void;
 	deny(callId: string): void;
 	newConversation(): void;
