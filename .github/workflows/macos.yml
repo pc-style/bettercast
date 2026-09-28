@@ -67,6 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install -g "@native-sdk/cli@$NATIVE_SDK_VERSION"
+          scripts/patch-native-sdk.sh
           zig version
           native version
 

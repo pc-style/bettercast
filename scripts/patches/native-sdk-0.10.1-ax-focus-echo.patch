@@ -1,0 +1,34 @@
+--- a/src/platform/macos/appkit_host.m
++++ b/src/platform/macos/appkit_host.m
+@@ -491,6 +491,8 @@
+ @property(nonatomic, assign) BOOL canUndo;
+ @property(nonatomic, assign) BOOL canRedo;
+ @property(nonatomic, assign) NSRect surfaceFrame;
++/* YES while the host copies the runtime's own state onto the element. */
++@property(nonatomic, assign) BOOL applyingRuntimeState;
+ - (BOOL)emitSetTextAccessibilityValue:(id)value;
+ - (BOOL)emitSetSelectionAccessibilityValue:(id)value;
+ @end
+@@ -1596,7 +1598,11 @@
+  * reports the app's actual focus back. */
+ - (void)setAccessibilityFocused:(BOOL)focused {
+     [super setAccessibilityFocused:focused];
+-    if (!focused || !self.accessibilityEnabled) return;
++    /* Mirroring the runtime's focus onto a fresh snapshot element is not
++     * an assistive write: echoing it back as a programmatic focus action
++     * would demote a Tab-earned (focus-visible) ring to quiet focus, so a
++     * Tab-focused list row stopped answering Space/Return. */
++    if (!focused || !self.accessibilityEnabled || self.applyingRuntimeState) return;
+     if ((self.actionFlags & NATIVE_SDK_APPKIT_WIDGET_ACTION_FOCUS) == 0) return;
+     [self.surfaceView emitWidgetAccessibilityActionWithId:self.widgetId action:NATIVE_SDK_APPKIT_WIDGET_ACCESSIBILITY_ACTION_FOCUS];
+ }
+@@ -5885,7 +5891,9 @@
+             }
+         }
+         element.accessibilityEnabled = (node.state_flags & NATIVE_SDK_APPKIT_WIDGET_STATE_ENABLED) != 0;
++        element.applyingRuntimeState = YES;
+         element.accessibilityFocused = (node.state_flags & NATIVE_SDK_APPKIT_WIDGET_STATE_FOCUSED) != 0;
++        element.applyingRuntimeState = NO;
+         element.accessibilitySelected = (node.state_flags & NATIVE_SDK_APPKIT_WIDGET_STATE_SELECTED) != 0;
+         element.canUndo = (node.state_flags & NATIVE_SDK_APPKIT_WIDGET_STATE_CAN_UNDO) != 0;
+         element.canRedo = (node.state_flags & NATIVE_SDK_APPKIT_WIDGET_STATE_CAN_REDO) != 0;
