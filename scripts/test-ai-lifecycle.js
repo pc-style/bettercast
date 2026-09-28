@@ -41,6 +41,12 @@ const native = {
 			documents.set(request.id, request.value);
 			return;
 		}
+		if (request.op === "attachment")
+			return {
+				kind: "text",
+				bytes: 6004,
+				text: "start:" + "x".repeat(5994) + "tail",
+			};
 		if (request.op === "http" && failHTTP)
 			throw new Error("Connection refused before headers");
 		if (request.op === "claude") {
@@ -176,6 +182,41 @@ test("replacement does not pretend an ordinary paste replaced a captured selecti
 	await ai.initialize();
 	expect((await ai.insert("missing", "replace")).status).toBe("failed");
 	expect(calls.some((r) => r.op === "pasteText")).toBe(false);
+});
+test("attachment preview is bounded, reads no additional context, and preserves full send content", async () => {
+	const ai = make();
+	const attachment = await ai.addAttachment({
+		uri: "/synthetic.txt",
+		origin: "file",
+	});
+	const beforePreview = calls.length;
+	expect(ai.attachmentPreview(attachment.id)).toEqual({
+		text: "start:" + "x".repeat(5994),
+		truncated: true,
+	});
+	expect(ai.attachmentPreview("not-selected")).toBeNull();
+	expect(calls).toHaveLength(beforePreview);
+	ai.setDraft({ text: "Read the whole attachment" });
+	await ai.send();
+	expect(calls.find((r) => r.op === "claude").prompt).toContain("xxxxtail");
+	expect(ai.attachmentPreview(attachment.id)).toBeNull();
+});
+test("pasted image preview uses the loaded data and disappears on removal", async () => {
+	const ai = make();
+	const uri = "data:image/png;base64,aGVsbG8=";
+	const attachment = await ai.addAttachment({
+		uri,
+		origin: "paste",
+		name: "synthetic.png",
+	});
+	const beforePreview = calls.length;
+	expect(ai.attachmentPreview(attachment.id)).toEqual({
+		imageUri: uri,
+		truncated: false,
+	});
+	expect(calls).toHaveLength(beforePreview);
+	ai.removeAttachment(attachment.id);
+	expect(ai.attachmentPreview(attachment.id)).toBeNull();
 });
 test("resume leaves capture private until explicit confirmation and changes policy atomically", async () => {
 	let accept;

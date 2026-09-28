@@ -354,6 +354,7 @@ const AIView: FC<{ ai: AIContract; expanded: boolean }> = observer(({ ai, expand
 						attachments={ai.draft.attachments}
 						provider={provider}
 						onRemove={id => ai.removeAttachment(id)}
+						preview={ai.attachmentPreview}
 					/>
 					{plan.warnings.map(w => (
 						<Text key={w} className="text-xxs text-amber-700 dark:text-amber-300 px-3 pb-1">
