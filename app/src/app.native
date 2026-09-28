@@ -119,6 +119,9 @@
                   <badge variant="secondary">Pinned</badge>
                 </if>
                 <text foreground="text_muted">{r.accessory}</text>
+                <!-- Room for the overlay scrollbar and for fonts that measure
+                     narrower than they draw (the kind was clipped flush right). -->
+                <spacer width="8" />
               </row>
             </list-item>
           </for>
