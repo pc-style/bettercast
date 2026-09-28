@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D4E5F6000000000007 /* SQLCipher in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6000000000008 /* SQLCipher */; };
 		3919C725599C8DA45324A5C6 /* libPods-macOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1194CEEB2780EBB1CE91CBEB /* libPods-macOS.a */; };
 		514201522437B4B40078DB4F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 514201512437B4B40078DB4F /* Assets.xcassets */; };
 		514201552437B4B40078DB4F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 514201532437B4B40078DB4F /* Main.storyboard */; };
@@ -44,6 +45,8 @@
 		70911D4E28BB22620005FD0E /* JSIBindings.mm in Sources */ = {isa = PBXBuildFile; fileRef = 70911D4C28BB22620005FD0E /* JSIBindings.mm */; };
 		70969E1727966ECD00BE3F1C /* SolNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70969E1627966ECD00BE3F1C /* SolNative.swift */; };
 		A1B2C3D4E5F6000000000001 /* AIProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000002 /* AIProcess.swift */; };
+		A1B2C3D4E5F6000000000003 /* ClipboardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */; };
+		A1B2C3D4E5F6000000000005 /* AIWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */; };
 		70969E192796719100BE3F1C /* SolNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = 70969E182796719100BE3F1C /* SolNative.mm */; };
 		70A07EBB29B48F4000D1885E /* MediaKeyForwarder.m in Sources */ = {isa = PBXBuildFile; fileRef = 70A07EBA29B48F4000D1885E /* MediaKeyForwarder.m */; };
 		70A198FD2F8A7B9D00B36D69 /* FileSearchIndexObjC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A198FB2F8A7B9D00B36D69 /* FileSearchIndexObjC.swift */; };
@@ -123,6 +126,8 @@
 		70911D4F28BB23AC0005FD0E /* SolMacros.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SolMacros.h; sourceTree = "<group>"; };
 		70969E1627966ECD00BE3F1C /* SolNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolNative.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000002 /* AIProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProcess.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardRepository.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIWorkspace.swift; sourceTree = "<group>"; };
 		70969E182796719100BE3F1C /* SolNative.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SolNative.mm; sourceTree = "<group>"; };
 		70A07EB929B48F1F00D1885E /* SpotifyApplication.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpotifyApplication.h; sourceTree = "<group>"; };
 		70A07EBA29B48F4000D1885E /* MediaKeyForwarder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MediaKeyForwarder.m; sourceTree = "<group>"; };
@@ -170,6 +175,7 @@
 				706D6D572B3894E200941026 /* CoreLocation.framework in Frameworks */,
 				706D6D532B388C1700941026 /* CoreWLAN.framework in Frameworks */,
 				7065EBBF2CDB8C2B008C0A74 /* LaunchAtLogin in Frameworks */,
+				A1B2C3D4E5F6000000000007 /* SQLCipher in Frameworks */,
 				3919C725599C8DA45324A5C6 /* libPods-macOS.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -289,6 +295,8 @@
 				7071D43527B3211700F8A4DC /* DarkMode.swift */,
 				70969E1627966ECD00BE3F1C /* SolNative.swift */,
 				A1B2C3D4E5F6000000000002 /* AIProcess.swift */,
+				A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */,
+				A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */,
 				70969E182796719100BE3F1C /* SolNative.mm */,
 				701086A627989798004C8CCD /* SolEmitter.swift */,
 				700A18D7279DBBE40096C830 /* ApplicationSearcher.swift */,
@@ -366,6 +374,7 @@
 			name = macOS;
 			packageProductDependencies = (
 				7065EBBE2CDB8C2B008C0A74 /* LaunchAtLogin */,
+				A1B2C3D4E5F6000000000008 /* SQLCipher */,
 			);
 			productName = sol;
 			productReference = 514201492437B4B30078DB4F /* bettercast-debug.app */;
@@ -396,6 +405,7 @@
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			packageReferences = (
 				7065EBBD2CDB8C2B008C0A74 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Legacy" */,
+				A1B2C3D4E5F6000000000009 /* XCRemoteSwiftPackageReference "SQLCipher.swift" */,
 			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
@@ -585,6 +595,8 @@
 				70911D4E28BB22620005FD0E /* JSIBindings.mm in Sources */,
 				70969E1727966ECD00BE3F1C /* SolNative.swift in Sources */,
 				A1B2C3D4E5F6000000000001 /* AIProcess.swift in Sources */,
+				A1B2C3D4E5F6000000000003 /* ClipboardRepository.swift in Sources */,
+				A1B2C3D4E5F6000000000005 /* AIWorkspace.swift in Sources */,
 				70E80B5C294C699E0094F1B5 /* NotchHelper.swift in Sources */,
 				70E80B63294C719C0094F1B5 /* CGImage.swift in Sources */,
 				7071D43727B3211700F8A4DC /* DarkMode.swift in Sources */,
@@ -767,6 +779,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
+					"SQLITE_HAS_CODEC=1",
 					"$(inherited)",
 					_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
 				);
@@ -834,6 +847,7 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
+					"SQLITE_HAS_CODEC=1",
 					_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -885,6 +899,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D4E5F6000000000009 /* XCRemoteSwiftPackageReference "SQLCipher.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sqlcipher/SQLCipher.swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.10.0;
+			};
+		};
 		7065EBBD2CDB8C2B008C0A74 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Legacy" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Legacy";
@@ -896,6 +918,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A1B2C3D4E5F6000000000008 /* SQLCipher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D4E5F6000000000009 /* XCRemoteSwiftPackageReference "SQLCipher.swift" */;
+			productName = SQLCipher;
+		};
 		7065EBBE2CDB8C2B008C0A74 /* LaunchAtLogin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7065EBBD2CDB8C2B008C0A74 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Legacy" */;
