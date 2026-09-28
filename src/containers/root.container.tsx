@@ -15,6 +15,8 @@ import {ScratchpadWidget} from 'widgets/scratchpad.widget'
 import {SearchWidget} from 'widgets/search.widget'
 import {SettingsWidget} from 'widgets/settings.widget'
 import {TranslationWidget} from 'widgets/translation.widget'
+import {AIWidget} from 'widgets/ai.widget'
+import {SnippetsWidget} from 'widgets/snippets.widget'
 
 export const RootContainer = observer(() => {
   const store = useStore()
@@ -104,6 +106,14 @@ export const RootContainer = observer(() => {
         <ProcessesWidget />
       </View>
     )
+  }
+
+  if (widget === Widget.AI) {
+    subWindow = <View className="fullWindow"><AIWidget /></View>
+  }
+
+  if (widget === Widget.SNIPPETS) {
+    subWindow = <View className="fullWindow"><SnippetsWidget /></View>
   }
 
   return (

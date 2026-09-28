@@ -120,7 +120,7 @@ export function createBaseItems(store: IRootStore) {
 		{
 			id: "settings",
 			iconImage: Assets.SettingsIcon,
-			name: "Sol Settings",
+			name: "Bettercast Settings",
 			alias: "preferences",
 			type: ItemType.CONFIGURATION,
 			callback: () => {
@@ -137,6 +137,24 @@ export function createBaseItems(store: IRootStore) {
 				store.ui.focusWidget(Widget.CREATE_ITEM);
 			},
 			preventClose: true,
+		},
+		{
+			id: "ask_claude",
+			icon: "✦",
+			name: "Ask Claude",
+			alias: "ai chat",
+			type: ItemType.CONFIGURATION,
+			preventClose: true,
+			callback: () => store.ui.focusWidget(Widget.AI),
+		},
+		{
+			id: "manage_snippets",
+			icon: "✎",
+			name: "Manage Snippets",
+			alias: "new snippet",
+			type: ItemType.CONFIGURATION,
+			preventClose: true,
+			callback: () => store.snippets.open(),
 		},
 		{
 			id: "resize_fullscreen",

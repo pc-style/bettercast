@@ -16,6 +16,9 @@ interface Props {
 
 const SHORTCUTS = [
 	{
+		label: () => <Text className="text">Unassigned (open from menu)</Text>,
+	},
+	{
 		label: ({ style }: { style?: any; className: string }) => (
 			<Text style={style}>
 				<Text className="font-bold text-base" style={style}>
@@ -167,68 +170,11 @@ export const OnboardingWidget: FC<Props> = observer(({ style }) => {
 					<View className="flex-1" />
 					<View className="flex-1 justify-center items-center">
 						<Text className="darker-text">
-							Here are some shortcuts to get you started
+							Search apps and commands, or ask Claude.
 						</Text>
-
-						<View className="flex-row gap-2 mt-10 items-center">
-							<Text className="flex-1 text-right text">Clipboard Manager</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="⌘" className="ml-2" />
-								<Key symbol="⇧" className="ml-1" />
-								<Key symbol="V" className="ml-1" />
-							</View>
-						</View>
-
-						<View className="flex-row gap-2 mt-4 items-center">
-							<Text className="flex-1 text-right text">Emoji Picker</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="⌘" className="ml-2" />
-								<Key symbol="⌃" className="ml-1" />
-								<Key symbol="␣" className="ml-1" />
-							</View>
-						</View>
-
-						<View className="flex-row gap-2 mt-4 items-center">
-							<Text className="flex-1 text-right text">Note Scratchpad</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="⌘" className="ml-2" />
-								<Key symbol="⇧" className="ml-1" />
-								<Key symbol="␣" className="ml-1" />
-							</View>
-						</View>
-
-						<View className="flex-row gap-2 mt-4 items-center">
-							<Text className="flex-1 text-right text">
-								Fullscreen front-most window
-							</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="^" className="ml-2" />
-								<Key symbol="⌥" className="ml-1" />
-								<Key symbol="⏎" className="ml-1" />
-							</View>
-						</View>
-
-						<View className="flex-row gap-2 mt-4 items-center">
-							<Text className="flex-1 text-right text">
-								Resize front-most window to the right
-							</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="^" className="ml-2" />
-								<Key symbol="⌥" className="ml-1" />
-								<Key symbol="→" className="ml-1" />
-							</View>
-						</View>
-
-						<View className="flex-row gap-2 mt-4 items-center">
-							<Text className="flex-1 text-right text">
-								Resize front-most window to the left
-							</Text>
-							<View className="flex-1 flex-row items-center gap-1">
-								<Key symbol="^" className="ml-2" />
-								<Key symbol="⌥" className="ml-1" />
-								<Key symbol="←" className="ml-1" />
-							</View>
-						</View>
+						<Text className="darker-text mt-3">
+							Command shortcuts start unassigned. Set them in Settings → Items.
+						</Text>
 					</View>
 					<View className="flex-1" />
 

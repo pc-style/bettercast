@@ -122,6 +122,7 @@ export const createKeystrokeStore = (root: IRootStore) => {
 						root.ui.executeConfirmCallback();
 						return;
 					}
+					if (root.ui.focusedWidget === Widget.AI || root.ui.focusedWidget === Widget.SNIPPETS) return;
 
 					root.ui.setHistoryPointer(0);
 					switch (root.ui.focusedWidget) {
@@ -212,6 +213,9 @@ export const createKeystrokeStore = (root: IRootStore) => {
 										root.ui.openKeyboardSettings();
 										return;
 									}
+							root.ui.setGlobalShortcut(
+								(["none", "option", "control", "command"] as const)[root.ui.selectedIndex],
+							);
 
 									root.ui.onboardingStep = "v1_quick_actions";
 									break;
@@ -678,14 +682,6 @@ export const createKeystrokeStore = (root: IRootStore) => {
 
 						case Widget.ONBOARDING:
 							root.ui.selectedIndex = Math.max(0, root.ui.selectedIndex - 1);
-
-							if (root.ui.selectedIndex === 0) {
-								root.ui.setGlobalShortcut("option");
-							} else if (root.ui.selectedIndex === 1) {
-								root.ui.setGlobalShortcut("control");
-							} else {
-								root.ui.setGlobalShortcut("command");
-							}
 							break;
 
 						default:
@@ -724,15 +720,7 @@ export const createKeystrokeStore = (root: IRootStore) => {
 						}
 
 						case Widget.ONBOARDING:
-							root.ui.selectedIndex = Math.min(2, root.ui.selectedIndex + 1);
-
-							if (root.ui.selectedIndex === 0) {
-								root.ui.setGlobalShortcut("option");
-							} else if (root.ui.selectedIndex === 1) {
-								root.ui.setGlobalShortcut("control");
-							} else {
-								root.ui.setGlobalShortcut("command");
-							}
+							root.ui.selectedIndex = Math.min(3, root.ui.selectedIndex + 1);
 							break;
 
 						case Widget.EMOJIS: {

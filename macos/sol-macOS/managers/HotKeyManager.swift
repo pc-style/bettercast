@@ -15,8 +15,7 @@ final class HotKeyManager {
   private var controlPressed = false
   private var f18Down = false
 
-  public let settingsHotKey = HotKey(key: .comma, modifiers: [.command])
-  public var mainHotKey = HotKey(key: .space, modifiers: [.command])
+  public var mainHotKey: HotKey?
 
   private var hotkeys: [HotKey] = []
   private var eventTap: CFMachPort?
@@ -26,12 +25,11 @@ final class HotKeyManager {
   static public let shared = HotKeyManager()
 
   private init() {
-    settingsHotKey.keyUpHandler = {
-      SolEmitter.sharedInstance.onShow(target: "SETTINGS")
-    }
-    mainHotKey.keyUpHandler = PanelManager.shared.toggle
-
     NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
+      if $0.modifierFlags.contains(.command) && $0.keyCode == 43 {
+        SolEmitter.sharedInstance.onShow(target: "SETTINGS")
+        return nil
+      }
       // 36 enter
       // 123 arrow left
       // 124 arrow right

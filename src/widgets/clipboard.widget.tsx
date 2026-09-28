@@ -115,6 +115,7 @@ export const ClipboardWidget: FC<Props> = observer(() => {
 			<View className="flex-row px-3">
 				<MainInput placeholder="Search Pasteboard..." showBackButton />
 			</View>
+			<Text className="text-xs darker-text px-3">Clipboard capture is unavailable in this build. Existing history may still appear below.</Text>
 			<LoadingBar />
 			<View className="flex-1 flex-row">
 				<View className="w-64 h-full">
@@ -127,7 +128,7 @@ export const ClipboardWidget: FC<Props> = observer(() => {
 						recycleItems
 						ListEmptyComponent={
 							<View className="flex-1 justify-center items-center">
-								<Text className="darker-text">[ ]</Text>
+								<Text className="darker-text text-center">No captured clipboard history. Capture is not enabled in this build.</Text>
 							</View>
 						}
 						renderItem={RenderItem}

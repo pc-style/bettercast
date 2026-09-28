@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "514201482437B4B30078DB4F"
-               BuildableName = "sol.app"
+               BuildableName = "bettercast-debug.app"
                BlueprintName = "macOS"
                ReferencedContainer = "container:sol.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "514201482437B4B30078DB4F"
-            BuildableName = "sol.app"
+            BuildableName = "bettercast-debug.app"
             BlueprintName = "macOS"
             ReferencedContainer = "container:sol.xcodeproj">
          </BuildableReference>
@@ -69,7 +69,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "514201482437B4B30078DB4F"
-            BuildableName = "sol.app"
+            BuildableName = "bettercast.app"
             BlueprintName = "macOS"
             ReferencedContainer = "container:sol.xcodeproj">
          </BuildableReference>

@@ -15,6 +15,7 @@ import {
 } from "stores/processes.store";
 import { type EmojiStore, createEmojiStore } from "stores/emoji.store";
 import { type ScriptsStore, createScriptsStore } from "stores/scripts.store";
+import { type SnippetsStore, createSnippetsStore } from "stores/snippets.store";
 
 export interface IRootStore {
 	ui: UIStore;
@@ -24,6 +25,7 @@ export interface IRootStore {
 	processes: ProcessesStore;
 	emoji: EmojiStore;
 	scripts: ScriptsStore;
+	snippets: SnippetsStore;
 	cleanUp: () => void;
 }
 
@@ -36,6 +38,7 @@ const createRootStore = (): IRootStore => {
 	store.calendar = createCalendarStore(store);
 	store.processes = createProcessesStore(store);
 	store.scripts = createScriptsStore(store);
+	store.snippets = createSnippetsStore(store);
 	store.emoji = createEmojiStore(store);
 	(store as IRootStore).cleanUp = () => {
 		store.ui.cleanUp();

@@ -1,18 +1,17 @@
 import EventKit
 import Foundation
 import React_RCTAppDelegate
-import Sparkle
 
 @NSApplicationMain
 @objc
 class AppDelegate: RCTAppDelegate {
-  private var updaterController: SPUStandardUpdaterController!
+  private var launcherMenuItem: NSStatusItem?
   private var mediaKeyForwarder: MediaKeyForwarder!
   private let imagesPasteboardDirectory: URL = {
     let home = FileManager.default.homeDirectoryForCurrentUser
     return home
       .appendingPathComponent(".config", isDirectory: true)
-      .appendingPathComponent("sol", isDirectory: true)
+      .appendingPathComponent("bettercast", isDirectory: true)
       .appendingPathComponent("images_pasteboard", isDirectory: true)
   }()
   private let supportedClipboardImageTypes: [(type: NSPasteboard.PasteboardType, ext: String)] = [
@@ -21,15 +20,6 @@ class AppDelegate: RCTAppDelegate {
     (.tiff, "tiff"),
   ]
   private let supportedImageFileExtensions = Set(["png", "jpg", "jpeg"])
-
-  override init() {
-    updaterController = SPUStandardUpdaterController(
-      startingUpdater: true,
-      updaterDelegate: nil,
-      userDriverDelegate: nil
-    )
-    super.init()
-  }
 
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
@@ -76,17 +66,27 @@ class AppDelegate: RCTAppDelegate {
 
     PanelManager.shared.setRootView(rootView)
 
-    setupPasteboardListener()
-
-    mediaKeyForwarder = MediaKeyForwarder()
+    launcherMenuItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    launcherMenuItem?.button?.title = "Bettercast"
+    let menu = NSMenu()
+    menu.addItem(NSMenuItem(title: "Open Bettercast", action: #selector(openLauncher), keyEquivalent: ""))
+    menu.addItem(NSMenuItem(title: "Quit Bettercast", action: #selector(quitLauncher), keyEquivalent: ""))
+    menu.items.forEach { $0.target = self }
+    launcherMenuItem?.menu = menu
 
     PanelManager.shared.showWindow()
   }
 
+  @objc private func openLauncher() {
+    PanelManager.shared.showWindow()
+  }
+
+  @objc private func quitLauncher() {
+    NSApp.terminate(nil)
+  }
+
   func checkForUpdates() {
-    DispatchQueue.main.async {
-      self.updaterController.checkForUpdates(self)
-    }
+    // No update feed is configured for Bettercast.
   }
 
   func setupPasteboardListener() {
@@ -185,6 +185,7 @@ class AppDelegate: RCTAppDelegate {
 
   func setMediaKeyForwardingEnabled(_ enabled: Bool) {
     if enabled {
+      if mediaKeyForwarder == nil { mediaKeyForwarder = MediaKeyForwarder() }
       mediaKeyForwarder?.startEventSession()
     } else {
       mediaKeyForwarder?.stopEventSession()

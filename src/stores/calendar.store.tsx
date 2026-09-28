@@ -1,4 +1,3 @@
-import { captureException } from "@sentry/react-native";
 import { extractMeetingLink } from "lib/calendar";
 import { solNative } from "lib/SolNative";
 import { DateTime } from "luxon";
@@ -23,7 +22,7 @@ export const createCalendarStore = (root: IRootStore) => {
 				hasInitializedSelection: store.hasInitializedSelection,
 			});
 		} catch (error) {
-			captureException(error);
+			console.error("Could not save calendar settings:", error);
 		}
 	};
 
@@ -160,7 +159,7 @@ export const createCalendarStore = (root: IRootStore) => {
 		//   / ____ \ (__| |_| | (_) | | | \__ \
 		//  /_/    \_\___|\__|_|\___/|_| |_|___/
 		fetchEvents: async () => {
-			if (store.calendarAuthorizationStatus !== "authorized") {
+			if (!root.ui.calendarEnabled || store.calendarAuthorizationStatus !== "authorized") {
 				runInAction(() => {
 					store.events = [];
 				});
@@ -187,12 +186,11 @@ export const createCalendarStore = (root: IRootStore) => {
 					store.events = events;
 				});
 			} catch (error) {
-				captureException(error);
 				console.error("Failed to fetch calendar events:", error);
 			}
 		},
 		fetchCalendars: async () => {
-			if (store.calendarAuthorizationStatus !== "authorized") {
+			if (!root.ui.calendarEnabled || store.calendarAuthorizationStatus !== "authorized") {
 				runInAction(() => {
 					store.calendars = [];
 				});
@@ -224,7 +222,6 @@ export const createCalendarStore = (root: IRootStore) => {
 					);
 				});
 			} catch (error) {
-				captureException(error);
 				console.error("Failed to fetch calendars:", error);
 			}
 		},
@@ -261,6 +258,7 @@ export const createCalendarStore = (root: IRootStore) => {
 			persistDisposer?.();
 		},
 		onShow: () => {
+			if (!root.ui.calendarEnabled) return;
 			store.getCalendarAccess();
 			store.fetchCalendars();
 			store.fetchEvents();
@@ -270,6 +268,7 @@ export const createCalendarStore = (root: IRootStore) => {
 				solNative.getCalendarAuthorizationStatus();
 		},
 		onStatusBarItemClick: async () => {
+			if (!root.ui.calendarEnabled) { Linking.openURL("ical://"); return; }
 			try {
 				const selectedCalendarIds = store.hasInitializedSelection
 					? (toJS(store.selectedCalendarIds) as string[])
@@ -312,9 +311,7 @@ export const createCalendarStore = (root: IRootStore) => {
 			persistDisposer = autorun(() => {
 				void persist();
 			});
-			store.getCalendarAccess();
-			await store.fetchCalendars();
-			await store.fetchEvents();
+			if (root.ui.calendarEnabled) store.onShow();
 		},
 	});
 

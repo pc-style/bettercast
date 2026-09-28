@@ -49,24 +49,7 @@ export function normalizeShortcutMap(shortcuts: Record<string, string>) {
   )
 }
 
-export const defaultShortcuts = {
-  // 'option+space': 'sol'
-  resize_fullscreen: 'control+option+return',
-  lock: 'command+option+q',
-  resize_right_half: 'control+option+right',
-  resize_left_half: 'control+option+left',
-  resize_top_half: 'control+option+up',
-  resize_bottom_half: 'control+option+down',
-  resize_top_left: 'control+option+u',
-  resize_top_right: 'control+option+i',
-  resize_bottom_left: 'control+option+j',
-  resize_bottom_right: 'control+option+k',
-  move_next_screen: 'control+option+command+right',
-  move_previous_screen: 'control+option+command+left',
-  scratchpad: 'command+shift+space',
-  emoji_picker: 'command+control+space',
-  clipboard_manager: 'command+option+v',
-}
+export const defaultShortcuts: Record<string, string> = {}
 
 export function renderToKeys(shortcut: string) {
   return shortcut.split('+').map((word, i) => {

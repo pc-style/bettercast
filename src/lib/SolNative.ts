@@ -1,5 +1,9 @@
 import { NativeEventEmitter, NativeModules } from "react-native";
 
+export type AIProvider = "claude" | "codex";
+export type AIRequest = { provider: AIProvider; prompt: string; requestId: string };
+export type AIResult = { text: string };
+
 class SolNative extends NativeEventEmitter {
 	openFile: (path: string) => void;
 	openWithFinder: (path: string) => void;
@@ -22,7 +26,7 @@ class SolNative extends NativeEventEmitter {
 		| null
 		| undefined
 	>;
-	setGlobalShortcut: (key: "command" | "option" | "control") => void;
+	setGlobalShortcut: (key: "command" | "option" | "control" | "none") => void;
 	getCalendarAuthorizationStatus: typeof global.__SolProxy.getCalendarAuthorizationStatus;
 	requestCalendarAccess: () => Promise<void>;
 	requestAccessibilityAccess: () => Promise<void>;
@@ -74,6 +78,9 @@ class SolNative extends NativeEventEmitter {
 	securelyStore: (key: string, value: string) => Promise<void>;
 	securelyRetrieve: (key: string) => Promise<string | null>;
 	executeBashScript: (script: string) => Promise<void>;
+	getAIProviders: () => Promise<Array<{ provider: AIProvider; available: boolean }>>;
+	runAI: (request: AIRequest) => Promise<AIResult>;
+	cancelAI: (requestId: string) => void;
 	showToast: (
 		text: string,
 		variant: "success" | "error",
@@ -130,6 +137,9 @@ class SolNative extends NativeEventEmitter {
 		this.openFile = module.openFile;
 		this.toggleDarkMode = module.toggleDarkMode;
 		this.executeBashScript = module.executeBashScript;
+		this.getAIProviders = module.getAIProviders;
+		this.runAI = module.runAI;
+		this.cancelAI = module.cancelAI;
 		this.executeAppleScript = module.executeAppleScript;
 		this.openWithFinder = module.openWithFinder;
 		this.getMediaInfo = module.getMediaInfo;

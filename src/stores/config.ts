@@ -1,6 +1,6 @@
 import { solNative } from "../lib/SolNative";
 
-const CONFIG_DIRECTORY_PATH = `/Users/${solNative.userName()}/.config/sol`;
+const CONFIG_DIRECTORY_PATH = `/Users/${solNative.userName()}/.config/bettercast`;
 const SCRIPTS_DIRECTORY_PATH = `${CONFIG_DIRECTORY_PATH}/scripts`;
 
 export const PORTABLE_KEYS = [
@@ -78,8 +78,8 @@ const readJsonFile = (
 		const raw = solNative.readFile(path);
 		if (raw == null) return null;
 		return JSON.parse(raw);
-	} catch (e) {
-		console.error(`Failed to read ${fileName}:`, e);
+	} catch {
+		console.error(`Failed to read ${fileName}`);
 		return null;
 	}
 };
@@ -111,5 +111,12 @@ export function readJsonRuntimeState(): Record<string, any> | null {
 }
 
 export function writeJsonRuntimeState(data: Record<string, any>): boolean {
+	// A corrupt or unreadable state file is not an empty state. Keep it intact for recovery.
+	if (solNative.exists(getRuntimeStatePath())) {
+		const state = readJsonRuntimeState();
+		if (state === null || typeof state !== "object" || Array.isArray(state)) {
+			return false;
+		}
+	}
 	return writeJsonFile(getRuntimeStatePath(), "state.json", data);
 }

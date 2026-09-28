@@ -46,6 +46,7 @@ export const General = observer(() => {
 							store.ui.setGlobalShortcut(v as any);
 						}}
 						options={[
+							{ label: "Unassigned", value: "none" as const },
 							{ label: "⌘ + ␣", value: "command" as const },
 							{ label: "⌥ + ␣", value: "option" as const },
 							{ label: "⌃ + ␣", value: "control" as const },
@@ -224,7 +225,7 @@ export const General = observer(() => {
 				<View className="flex-1">
 					<Text className="text-sm text">Reload Config</Text>
 					<Text className="text-xxs text-neutral-500 dark:text-neutral-400">
-						Re-read ~/.config/sol/config.json
+						Re-read ~/.config/bettercast/config.json
 					</Text>
 				</View>
 				<TouchableOpacity onPress={() => store.ui.reloadJsonConfig()}>

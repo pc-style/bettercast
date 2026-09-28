@@ -6,7 +6,7 @@ import {FC, useEffect, useRef} from 'react'
 import {Text, View, ViewStyle, TouchableOpacity} from 'react-native'
 import {useStore} from 'store'
 import {EMOJI_ROW_SIZE, Emoji} from 'stores/emoji.store'
-import {LegendList, LegendListRef} from '@legendapp/list'
+import {LegendList, LegendListRef} from '@legendapp/list/react-native'
 import {LoadingBar} from 'components/LoadingBar'
 
 interface Props {

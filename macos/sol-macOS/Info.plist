@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sol</string>
+	<string>Bettercast</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -42,11 +42,11 @@
 		</dict>
 	</dict>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Sol needs permision to execute apple scripts</string>
+	<string>Bettercast needs permission to execute AppleScripts</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Sol needs permission to display your appointments</string>
+	<string>Bettercast needs permission to display your appointments</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Sol needs permission to display your appointments</string>
+	<string>Bettercast needs permission to display your appointments</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Allow location access to show Wi-Fi password</string>
 	<key>NSLocationAlwaysUsageDescription</key>
@@ -62,12 +62,8 @@
 	<key>NSSupportsSuddenTermination</key>
 	<true/>
 	<key>NSSystemAdministrationUsageDescription</key>
-	<string>Sol needs permissions to read bookmarks and other files</string>
+	<string>Bettercast needs permission to read bookmarks and other files</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/ospfranco/sol/main/releases/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>K+wkzEuPN5g0KIQQTxQIVrZAWfMoowpia/yAopR7sMk=</string>
 </dict>
 </plist>

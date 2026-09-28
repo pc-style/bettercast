@@ -26,13 +26,13 @@ export const Scripts: FC = observer(() => {
 					<Text className="text-xxs text-neutral-500 dark:text-neutral-400">
 						Scripts are located at{" "}
 						<Text className="font-bold">
-							/Users/{username}/.config/sol/scripts
+							/Users/{username}/.config/bettercast/scripts
 						</Text>
 						.
 					</Text>
 					<Text className="text-xxs text-neutral-500 dark:text-neutral-400 mt-2">
 						Place your scripts in this folder to have them automatically picked
-						up by Sol.
+						up by Bettercast. Running one asks for confirmation.
 					</Text>
 					<Text className="text-xxs text-neutral-500 dark:text-neutral-400 mt-2">
 						Each script must contain two comments:

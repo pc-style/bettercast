@@ -11,7 +11,7 @@ import {
 	writeJsonRuntimeState,
 } from "./config";
 
-export type PersistedStoreKey = "calendar" | "clipboard" | "emoji";
+export type PersistedStoreKey = "calendar" | "clipboard" | "emoji" | "snippets";
 
 type PersistedConfig = Record<string, any>;
 type PortableConfigState = Partial<Record<PortableKey, any>>;

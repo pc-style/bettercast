@@ -1,86 +1,17 @@
-# Sol
+# Bettercast
 
-![Header](Header.jpg)
+Bettercast is a fork of [Sol](https://github.com/ospfranco/sol), Oscar Franco's open-source macOS launcher. The aim is a complete, keyboard-first replacement with a dependable daily launcher **and** a capable AI workspace. The current first slice retains Sol's launcher foundation while building both tracks; it is not the finished replacement.
 
-<br/>
-<div align="center">
-  <a align="center" href="https://twitter.com/ospfranco">
-    <img src="https://img.shields.io/twitter/follow/ospfranco?label=Follow%20%40ospfranco&style=social" />
-  </a>
-</div>
+**Implemented in source, not native-app verified:** text-only, single-turn AI through the installed Claude Code CLI (tools off, no session persistence); snippet CRUD/search/paste integration; script execution confirmation; and fork isolation changes. Review and integration are still underway. **Clipboard capture is intentionally unavailable in the fork at present**, despite inherited clipboard code; it must be rebuilt and verified before trial use. The complete target adds indexed text/image/file-reference history, sequential paste, a command registry and TypeScript extensions, and rich AI with streaming, attachments, provider choice, real search, approved MCP tools, and local history. A chat box alone does not meet it. See [status, gaps, and stages](docs/bettercast-plan.md).
 
-Sol is an open source app launcher, focused on ease of use and speed. It has minimal configuration and runs natively.
+## Local development
 
-[Visit official site](https://sol.ospfranco.com)
+This is a React Native macOS app. Install full Xcode (not just Command Line Tools), Mise, and CocoaPods before following Sol's setup: `mise install`, then `bun macos` for a local debug run. Check the fork's bundle identifiers and signing configuration before installing it alongside Sol. **No native build or visual app check has been completed here:** this machine currently has Command Line Tools but not full Xcode (`xcodebuild` cannot run).
 
-## Download
+Checks completed independently: `bun run typecheck`, 7 Bun tests across the foundation and snippet-persistence suites, targeted Biome lint, a production macOS JS bundle, the standalone Swift AI process synthetic suite, and an opt-in live Claude bridge probe passed. These check source and bridge behavior, **not** a running Bettercast app. Reproduction commands and the remaining validation are in the [plan](docs/bettercast-plan.md#verification).
 
-Install via brew
+Upstream `fastlane release` is intentionally disabled in this fork. It previously used upstream signing, release paths, GitHub publishing, git push, and `/Applications/Sol.app`; there is no fork release workflow yet. Do not use upstream releases or `brew install --cask sol` as Bettercast downloads.
 
-```
-brew install --cask sol
-```
+## Attribution and license
 
-Or manually download the latest [release](https://github.com/ospfranco/sol/tree/main/releases).
-
-## Discord
-
-Join the Discord
-
-https://discord.gg/W9XmqCQCKP
-
-## Features
-
-- App search
-- Custom shortcuts
-- Google translate
-- Calendar
-- Show upcoming appointement in Menu Bar
-- Custom AppleScript commands
-- Custom links
-- Imports browser bookmarks
-- Window Manager
-- Emoji picker
-- Clipboard manager
-- Notes Scratchpad
-- Retrieve Wi-Fi password
-- Show IP address
-- Start a google meet
-- Switch OS theme
-- Process killer
-- Generate NanoID
-- Generate UUID
-- Generate lorem ipsum
-- Format and paste JSON
-- Forward media keys to Spotify/Apple Music
-- Blacken Menu Bar
-- Quickly evaluate math operations
-- Script Runner
-- Symbolic Link Support
-
-## Contributing
-
-You need to set up your machine for macOS development with React Native. Basically you need to install:
-
-- Mise (https://mise.jdx.dev/)
-- Xcode
-- Cocoapods
-
-Follow any of the online tutorials to set up your machine for iOS/MacOS React Native development.
-
-Once you have everything installed run the following commands
-
-```sh
-mise plugin add cocoapods
-# To enable hooks
-mise settings experimental=true
-# Will install all bun, ruby and run the installation of dependencies
-mise install
-
-# You can then run the app with
-bun macos
-```
-
-## License
-
-MIT License
+Bettercast retains Sol's [MIT license](LICENSE) and original copyright notice. Sol and its releases belong to [Oscar Franco and upstream contributors](https://github.com/ospfranco/sol); Bettercast is an independent fork, not an official Sol release.

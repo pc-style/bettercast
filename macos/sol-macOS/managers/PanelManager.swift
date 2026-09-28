@@ -18,8 +18,6 @@ enum PreferredScreen {
   }
 
   @objc func showWindow(target: String? = nil) {
-    HotKeyManager.shared.settingsHotKey.isPaused = false
-
     guard
       let screen =
         (preferredScreen == .frontmost ? getFrontmostScreen() : getScreenWithMouse())
@@ -42,7 +40,6 @@ enum PreferredScreen {
   @objc func hideWindow() {
     mainWindow.setIsVisible(false)
     SolEmitter.sharedInstance.onHide()
-    HotKeyManager.shared.settingsHotKey.isPaused = true
   }
 
   @objc func resetSize() {

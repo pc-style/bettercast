@@ -1,32 +1,5 @@
-fastlane documentation
-----
+# Fork release safety
 
-# Installation
+`fastlane mac release` intentionally stops with an error. The inherited Sol lane used upstream signing credentials, a machine-specific path, upstream GitHub publishing, appcast generation, `git push`, and `/Applications/Sol.app`; none is appropriate for this fork. There is no Bettercast release lane yet.
 
-Make sure you have the latest version of the Xcode command line tools installed:
-
-```sh
-xcode-select --install
-```
-
-For _fastlane_ installation instructions, see [Installing _fastlane_](https://docs.fastlane.tools/#installing-fastlane)
-
-# Available Actions
-
-## Mac
-
-### mac release
-
-```sh
-[bundle exec] fastlane mac release
-```
-
-
-
-----
-
-This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
-
-More information about _fastlane_ can be found on [fastlane.tools](https://fastlane.tools).
-
-The documentation of _fastlane_ can be found on [docs.fastlane.tools](https://docs.fastlane.tools).
+For a local debug run, install full Xcode and the project dependencies, check the fork's identifiers/signing, then run `bun macos` from the repository root. Do not use fastlane for local development. See [the project README](../README.md) and [implementation plan](../docs/bettercast-plan.md).

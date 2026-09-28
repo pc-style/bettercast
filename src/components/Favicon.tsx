@@ -14,7 +14,7 @@ const Favicon = ({
 }) => {
   const [firstFail, failedFirst] = useState(false)
   const [secondFail, failedSecond] = useState(false)
-  const parsedUrl = new URL(url)
+  const parsedUrl = new URL(url) as URL & {host: string}
 
   const faviconUrl = `https://www.google.com/s2/favicons?domain=${parsedUrl.host}&sz=64`
   const fallbackUrl = `https://${parsedUrl.host}/favicon.ico` // Local asset or remote placeholder

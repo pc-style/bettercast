@@ -10,9 +10,9 @@
 #import <Foundation/Foundation.h>
 #import <iostream>
 #ifdef DEBUG
-#import <sol_debug-Swift.h>
+#import <bettercast_debug-Swift.h>
 #else
-#import <sol-Swift.h>
+#import <bettercast-Swift.h>
 #endif
 #import "FolderWatcherJSI.h"
 

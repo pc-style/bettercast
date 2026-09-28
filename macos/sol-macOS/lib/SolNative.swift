@@ -2,7 +2,7 @@ import Foundation
 import HotKey
 import LaunchAtLogin
 
-private let keychain = Keychain(service: "Sol")
+private let keychain = Keychain(service: "com.pcstyle.bettercast")
 
 @objc(SolNative)
 class SolNative: RCTEventEmitter {
@@ -121,6 +121,55 @@ class SolNative: RCTEventEmitter {
     resolver(output)
   }
 
+  @objc func getAIProviders(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter _: RCTPromiseRejectBlock
+  ) {
+    resolve([
+      ["provider": "claude", "available": AIProcess.claudeExecutable() != nil],
+      ["provider": "codex", "available": false],
+    ])
+  }
+
+  @objc func runAI(
+    _ request: NSDictionary,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    guard let provider = request["provider"] as? String, provider == "claude",
+          let id = request["requestId"] as? String,
+          let prompt = request["prompt"] as? String else {
+      reject(AIProcessError.invalidRequest.rawValue, "Only Claude is supported", nil)
+      return
+    }
+    guard let executable = AIProcess.claudeExecutable() else {
+      reject(AIProcessError.unavailable.rawValue, "Claude CLI is not installed", nil)
+      return
+    }
+    AIProcess.shared.run(
+      id: id, prompt: prompt, executable: executable,
+      arguments: AIProcess.claudeArguments
+    ) { result in
+      switch result {
+      case .failure(let error):
+        let message = error == .failed
+          ? "Claude failed; verify CLI supports --safe-mode and --permission-prompts none"
+          : "AI request failed (\(error.rawValue))"
+        reject(error.rawValue, message, nil)
+      case .success(let output):
+        guard let text = AIProcess.parseClaudeResponse(output) else {
+          reject(AIProcessError.failed.rawValue, "Claude returned an invalid response", nil)
+          return
+        }
+        resolve(["text": text])
+      }
+    }
+  }
+
+  @objc func cancelAI(_ requestId: String) {
+    AIProcess.shared.cancel(requestId)
+  }
+
   @objc func getMediaInfo(
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter _: RCTPromiseRejectBlock
@@ -162,7 +211,8 @@ class SolNative: RCTEventEmitter {
   }
 
   @objc func setGlobalShortcut(_ key: String) {
-    HotKeyManager.shared.mainHotKey.isPaused = true
+    HotKeyManager.shared.mainHotKey?.isPaused = true
+    HotKeyManager.shared.mainHotKey = nil
     if key == "command" {
       HotKeyManager.shared.mainHotKey = HotKey(
         key: .space,

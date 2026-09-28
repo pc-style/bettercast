@@ -1,4 +1,3 @@
-import { captureException } from "@sentry/react-native";
 import { solNative } from "lib/SolNative";
 import MiniSearch from "minisearch";
 import { autorun, makeAutoObservable, runInAction } from "mobx";
@@ -8,7 +7,7 @@ import { readPersistedStore, writePersistedStore } from "./persisted-config";
 import { Widget } from "./ui.store";
 
 const MAX_ITEMS = 1000;
-const MANAGED_PASTEBOARD_IMAGES_PATH = `/Users/${solNative.userName()}/.config/sol/images_pasteboard`;
+const MANAGED_PASTEBOARD_IMAGES_PATH = `/Users/${solNative.userName()}/.config/bettercast/images_pasteboard`;
 
 let onTextCopiedListener: EmitterSubscription | undefined;
 let onFileCopiedListener: EmitterSubscription | undefined;
@@ -68,7 +67,7 @@ function removeManagedImageFile(item: PasteItem | undefined) {
 			solNative.del(item.url);
 		}
 	} catch (e) {
-		captureException(e);
+		console.error("Could not remove clipboard image:", e);
 	}
 }
 
@@ -92,7 +91,7 @@ function cleanupOrphanedManagedImageFiles(items: PasteItem[]) {
 			}
 		}
 	} catch (e) {
-		captureException(e);
+		console.error("Could not clean clipboard images:", e);
 	}
 }
 
@@ -221,7 +220,7 @@ export const createClipboardStore = (root: IRootStore) => {
 				try {
 					minisearch.remove(store.items[store.items.length - 1]);
 				} catch (e) {
-					captureException(e);
+					console.error("Could not save clipboard:", e);
 				}
 
 				store.items = store.items.slice(0, MAX_ITEMS);
@@ -236,7 +235,7 @@ export const createClipboardStore = (root: IRootStore) => {
 		setSaveHistory: (v: boolean) => {
 			store.saveHistory = v;
 			if (!v) {
-				solNative.securelyStore("@sol.clipboard_history_v2", "[]");
+				solNative.securelyStore("@bettercast.clipboard_history_v2", "[]");
 			}
 		},
 		cleanUp: () => {
@@ -267,7 +266,7 @@ export const createClipboardStore = (root: IRootStore) => {
 
 		if (store.saveHistory) {
 			const entry = await solNative.securelyRetrieve(
-				"@sol.clipboard_history_v2",
+				"@bettercast.clipboard_history_v2",
 			);
 
 			if (entry) {
@@ -306,7 +305,7 @@ export const createClipboardStore = (root: IRootStore) => {
 			}));
 			try {
 				await solNative.securelyStore(
-					"@sol.clipboard_history_v2",
+					"@bettercast.clipboard_history_v2",
 					JSON.stringify(itemsToPersist),
 				);
 			} catch (e) {

@@ -1,4 +1,4 @@
-import { LegendList } from '@legendapp/list'
+import { LegendList } from '@legendapp/list/react-native'
 import { Assets, Icons } from 'assets'
 import clsx from 'clsx'
 import Favicon from 'components/Favicon'
@@ -120,7 +120,7 @@ const RenderItem = observer(({ item, index }: any) => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text className="text-xs text-accent">{isDisabled ? 'Disabled' : 'Click to set'}</Text>
+              <Text className="text-xs text-accent">{isDisabled ? 'Disabled' : 'Unassigned · click to set'}</Text>
             )}
           </View>
         </View>

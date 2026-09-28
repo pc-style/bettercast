@@ -4,7 +4,7 @@ import { ItemType } from "./ui.store";
 import type { IRootStore } from "store";
 
 const getScriptsPath = () =>
-	`/Users/${solNative.userName()}/.config/sol/scripts`;
+	`/Users/${solNative.userName()}/.config/bettercast/scripts`;
 
 function parseScriptMetadata(content: string, fileName: string) {
 	// Default values
@@ -51,7 +51,8 @@ export const createScriptsStore = (root: IRootStore) => {
 					name,
 					icon,
 					type: ItemType.USER_SCRIPT,
-					callback: async () => {
+					preventClose: true,
+					callback: () => root.ui.confirm(`Run script: ${name}?`, async () => {
 						try {
 							if (file.endsWith(".applescript")) {
 								await solNative.executeAppleScript(content);
@@ -61,7 +62,7 @@ export const createScriptsStore = (root: IRootStore) => {
 						} catch (e) {
 							solNative.showToast(`Error executing script ${e}`, "error");
 						}
-					},
+					}),
 				});
 			}
 			store.scripts = scriptItems;
