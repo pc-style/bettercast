@@ -45,6 +45,7 @@
 		70969E1727966ECD00BE3F1C /* SolNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70969E1627966ECD00BE3F1C /* SolNative.swift */; };
 		A1B2C3D4E5F6000000000001 /* AIProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000002 /* AIProcess.swift */; };
 		A1B2C3D4E5F6000000000003 /* ClipboardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */; };
+		A1B2C3D4E5F6000000000005 /* AIWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */; };
 		70969E192796719100BE3F1C /* SolNative.mm in Sources */ = {isa = PBXBuildFile; fileRef = 70969E182796719100BE3F1C /* SolNative.mm */; };
 		70A07EBB29B48F4000D1885E /* MediaKeyForwarder.m in Sources */ = {isa = PBXBuildFile; fileRef = 70A07EBA29B48F4000D1885E /* MediaKeyForwarder.m */; };
 		70A198FD2F8A7B9D00B36D69 /* FileSearchIndexObjC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A198FB2F8A7B9D00B36D69 /* FileSearchIndexObjC.swift */; };
@@ -125,6 +126,7 @@
 		70969E1627966ECD00BE3F1C /* SolNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolNative.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000002 /* AIProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProcess.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardRepository.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIWorkspace.swift; sourceTree = "<group>"; };
 		70969E182796719100BE3F1C /* SolNative.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SolNative.mm; sourceTree = "<group>"; };
 		70A07EB929B48F1F00D1885E /* SpotifyApplication.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpotifyApplication.h; sourceTree = "<group>"; };
 		70A07EBA29B48F4000D1885E /* MediaKeyForwarder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MediaKeyForwarder.m; sourceTree = "<group>"; };
@@ -292,6 +294,7 @@
 				70969E1627966ECD00BE3F1C /* SolNative.swift */,
 				A1B2C3D4E5F6000000000002 /* AIProcess.swift */,
 				A1B2C3D4E5F6000000000004 /* ClipboardRepository.swift */,
+				A1B2C3D4E5F6000000000006 /* AIWorkspace.swift */,
 				70969E182796719100BE3F1C /* SolNative.mm */,
 				701086A627989798004C8CCD /* SolEmitter.swift */,
 				700A18D7279DBBE40096C830 /* ApplicationSearcher.swift */,
@@ -589,6 +592,7 @@
 				70969E1727966ECD00BE3F1C /* SolNative.swift in Sources */,
 				A1B2C3D4E5F6000000000001 /* AIProcess.swift in Sources */,
 				A1B2C3D4E5F6000000000003 /* ClipboardRepository.swift in Sources */,
+				A1B2C3D4E5F6000000000005 /* AIWorkspace.swift in Sources */,
 				70E80B5C294C699E0094F1B5 /* NotchHelper.swift in Sources */,
 				70E80B63294C719C0094F1B5 /* CGImage.swift in Sources */,
 				7071D43727B3211700F8A4DC /* DarkMode.swift in Sources */,
@@ -680,7 +684,6 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pcstyle.bettercast.debug;
 				PRODUCT_NAME = "bettercast-debug";
@@ -720,7 +723,6 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pcstyle.bettercast;
 				PRODUCT_NAME = bettercast;
