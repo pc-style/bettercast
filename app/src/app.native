@@ -7,159 +7,173 @@
      Row geometry (list padding 8, gap 2, rows 44, headers 24) must match
      viewmodel.ts: it drives scroll-into-view and the thumbnail window. -->
 <column grow="1" background="background">
-  <row padding="12" gap="8" cross="center">
-    <if test="{showBack}">
-      <button size="lg" variant="ghost" icon="chevron-left" label="Back" on-press="go_back"></button>
-    </if>
-    <search-field key="{searchEpoch}" autofocus="true" grow="1" size="lg" text="{queryText}" placeholder="{searchPlaceholder}" label="{searchLabel}" on-input="query_edit" on-submit="run_selected" />
-  </row>
-  <separator />
-  <if test="{isAiScreen}">
-    <column padding="12" gap="8">
-      <row gap="8" cross="center">
-        <if test="{hasAiProviders}">
-          <toggle-group gap="2" label="AI provider">
-            <for each="aiProviderChips" as="p" key="provider">
-              <toggle-button size="sm" selected="{p.selected}" on-toggle="ai_set_provider:{p.provider}">{p.title}</toggle-button>
-            </for>
-          </toggle-group>
+  <!-- The footer layer comes FIRST in the tree although it paints at the
+       bottom: macOS publishes only the first 64 accessibility nodes of a
+       view (SDK max_widget_accessibility_nodes), in tree order, so a long
+       result list must never push Actions/Manage… out of the AX tree.
+       Tab order is a cycle, so search -> results -> footer is unchanged.
+       The main layer ends in a 48pt spacer the footer row sits under;
+       layout containers are not hit targets, so presses reach it. -->
+  <stack grow="1">
+    <column grow="1" main="end">
+      <row height="48" padding="8" gap="8" cross="center">
+        <text grow="1" foreground="text_muted">{footerHint}</text>
+        <if test="{aiRunning}">
+          <button size="sm" variant="ghost" on-press="ai_cancel">Stop</button>
         </if>
-        <else>
-          <text grow="1" wrap="true" foreground="warning_text">{aiNoProviderText}</text>
-        </else>
-        <spacer grow="1" />
-        <if test="{hasClips}">
-          <button size="sm" variant="ghost" icon="plus" on-press="ai_attach_latest">{attachLatestLabel}</button>
+        <if test="{showAiTools}">
+          <button size="sm" variant="ghost" on-press="ai_copy">Copy Answer</button>
+          <button size="sm" variant="ghost" on-press="ai_new">New Chat</button>
         </if>
-        <if test="{hasOlderImage}">
-          <button size="sm" variant="ghost" icon="plus" on-press="ai_attach_clip:{latestImageClipId}">Attach Latest Image</button>
+        <if test="{hasPrimary}">
+          <button size="sm" variant="ghost" label="{primaryLabel}" on-press="run_selected">{primaryLabel} ↩</button>
         </if>
+        <stack>
+          <button size="sm" variant="ghost" on-press="actions_toggle">Actions</button>
+          <if test="{actionsOpen}">
+            <dropdown-menu anchor="above" anchor-alignment="end" on-dismiss="actions_close">
+              <for each="actions" as="a" key="id">
+                <menu-item selected="{a.selected}" on-press="action_run:{a.id}">{a.title}</menu-item>
+              </for>
+            </dropdown-menu>
+          </if>
+        </stack>
+        <text foreground="text_muted">Cmd+K</text>
+        <button size="sm" variant="ghost" on-press="manage_open">Manage…</button>
       </row>
-      <if test="{hasAttachments}">
-        <row gap="6" cross="center">
-          <text foreground="text_muted">Attached:</text>
-          <for each="aiAttachments" as="a" key="index">
-            <button size="sm" variant="secondary" icon="x" label="{a.removeLabel}" on-press="ai_detach:{a.index}">{a.title}</button>
-          </for>
-        </row>
-      </if>
     </column>
-    <separator />
-    <scroll grow="1" label="Answer">
-      <column padding="16" gap="10">
-        <if test="{hasAiQuestion}">
-          <text wrap="true" foreground="text_muted">{aiQuestion}</text>
+    <column grow="1">
+      <row padding="12" gap="8" cross="center">
+        <if test="{showBack}">
+          <button size="lg" variant="ghost" icon="chevron-left" label="Back" on-press="go_back"></button>
         </if>
-        <if test="{aiWaiting}">
+        <search-field key="{searchEpoch}" autofocus="true" grow="1" size="lg" text="{queryText}" placeholder="{searchPlaceholder}" label="{searchLabel}" on-input="query_edit" on-submit="run_selected" />
+      </row>
+      <separator />
+      <if test="{isAiScreen}">
+        <column padding="12" gap="8">
           <row gap="8" cross="center">
-            <spinner />
-            <text foreground="text_muted">Thinking…</text>
+            <if test="{hasAiProviders}">
+              <toggle-group gap="2" label="AI provider">
+                <for each="aiProviderChips" as="p" key="provider">
+                  <toggle-button size="sm" selected="{p.selected}" on-toggle="ai_set_provider:{p.provider}">{p.title}</toggle-button>
+                </for>
+              </toggle-group>
+            </if>
+            <else>
+              <text grow="1" wrap="true" foreground="warning_text">{aiNoProviderText}</text>
+            </else>
+            <spacer grow="1" />
+            <if test="{hasClips}">
+              <button size="sm" variant="ghost" icon="plus" on-press="ai_attach_latest">{attachLatestLabel}</button>
+            </if>
+            <if test="{hasOlderImage}">
+              <button size="sm" variant="ghost" icon="plus" on-press="ai_attach_clip:{latestImageClipId}">Attach Latest Image</button>
+            </if>
           </row>
-        </if>
-        <if test="{hasAiAnswer}">
-          <markdown source="{aiAnswer}" />
-        </if>
-        <if test="{aiIdle}">
-          <text wrap="true" foreground="text_muted">Type a question and press Return. Drop files on this window, or attach what you copied, to ask about them.</text>
-        </if>
-      </column>
-    </scroll>
-  </if>
-  <else>
-    <if test="{isClipboardScreen}">
-      <row padding="8" gap="8" cross="center">
-        <toggle-group gap="2" label="Show">
-          <for each="clipFilters" as="f" key="filter">
-            <toggle-button size="sm" selected="{f.selected}" on-toggle="clip_filter:{f.filter}">{f.title}</toggle-button>
-          </for>
-        </toggle-group>
-        <spacer grow="1" />
-        <if test="{hasQueue}">
-          <badge>{queueSummary}</badge>
-        </if>
-      </row>
-      <separator />
-    </if>
-    <if test="{isQueueScreen}">
-      <row padding="8" gap="8" cross="center">
-        <text grow="1" foreground="text_muted">Paste Next pastes these in order, then removes them.</text>
-        <if test="{hasQueue}">
-          <button size="sm" variant="ghost" on-press="queue_clear">Clear Queue</button>
-        </if>
-      </row>
-      <separator />
-    </if>
-    <if test="{hasResults}">
-      <scroll grow="1" label="Results" value="{resultsOffset}" on-scroll="results_scrolled">
-        <list gap="2" padding="8">
-          <for each="results" as="r" key="id">
-            <if test="{r.hasHeader}">
-              <row height="24" cross="end">
-                <text foreground="text_muted">{r.header}</text>
+          <if test="{hasAttachments}">
+            <row gap="6" cross="center">
+              <text foreground="text_muted">Attached:</text>
+              <for each="aiAttachments" as="a" key="index">
+                <button size="sm" variant="secondary" icon="x" label="{a.removeLabel}" on-press="ai_detach:{a.index}">{a.title}</button>
+              </for>
+            </row>
+          </if>
+        </column>
+        <separator />
+        <scroll grow="1" label="Answer">
+          <column padding="16" gap="10">
+            <if test="{hasAiQuestion}">
+              <text wrap="true" foreground="text_muted">{aiQuestion}</text>
+            </if>
+            <if test="{aiWaiting}">
+              <row gap="8" cross="center">
+                <spinner />
+                <text foreground="text_muted">Thinking…</text>
               </row>
             </if>
-            <list-item height="44" selected="{r.selected}" label="{r.a11y}" on-press="row_run:{r.id}">
-              <row gap="10" cross="center" grow="1">
-                <row width="36" height="28" main="center" cross="center">
-                  <if test="{r.hasThumb}">
-                    <image image="{r.thumb}" width="36" height="28" label="" />
-                  </if>
-                  <else>
-                    <icon name="{r.icon}" width="16" height="16" foreground="text_muted" />
-                  </else>
-                </row>
-                <column grow="1" gap="0">
-                  <text>{r.title}</text>
-                  <text foreground="text_muted">{r.subtitle}</text>
-                </column>
-                <if test="{r.queued}">
-                  <badge>{r.queueBadge}</badge>
-                </if>
-                <if test="{r.pinned}">
-                  <badge variant="secondary">Pinned</badge>
-                </if>
-                <text foreground="text_muted">{r.accessory}</text>
-                <!-- Room for the overlay scrollbar and for fonts that measure
-                     narrower than they draw (the kind was clipped flush right). -->
-                <spacer width="8" />
-              </row>
-            </list-item>
-          </for>
-        </list>
-      </scroll>
-    </if>
-    <else>
-      <column grow="1" main="center" cross="center" padding="24">
-        <text wrap="true" foreground="text_muted">{emptyText}</text>
-      </column>
-    </else>
-  </else>
-  <separator />
-  <row padding="8" gap="8" cross="center">
-    <text grow="1" foreground="text_muted">{footerHint}</text>
-    <if test="{aiRunning}">
-      <button size="sm" variant="ghost" on-press="ai_cancel">Stop</button>
-    </if>
-    <if test="{showAiTools}">
-      <button size="sm" variant="ghost" on-press="ai_copy">Copy Answer</button>
-      <button size="sm" variant="ghost" on-press="ai_new">New Chat</button>
-    </if>
-    <if test="{hasPrimary}">
-      <button size="sm" variant="ghost" label="{primaryLabel}" on-press="run_selected">{primaryLabel} ↩</button>
-    </if>
-    <stack>
-      <button size="sm" variant="ghost" on-press="actions_toggle">Actions</button>
-      <if test="{actionsOpen}">
-        <dropdown-menu anchor="above" anchor-alignment="end" on-dismiss="actions_close">
-          <for each="actions" as="a" key="id">
-            <menu-item selected="{a.selected}" on-press="action_run:{a.id}">{a.title}</menu-item>
-          </for>
-        </dropdown-menu>
+            <if test="{hasAiAnswer}">
+              <markdown source="{aiAnswer}" />
+            </if>
+            <if test="{aiIdle}">
+              <text wrap="true" foreground="text_muted">Type a question and press Return. Drop files on this window, or attach what you copied, to ask about them.</text>
+            </if>
+          </column>
+        </scroll>
       </if>
-    </stack>
-    <text foreground="text_muted">Cmd+K</text>
-    <button size="sm" variant="ghost" on-press="manage_open">Manage…</button>
-  </row>
+      <else>
+        <if test="{isClipboardScreen}">
+          <row padding="8" gap="8" cross="center">
+            <toggle-group gap="2" label="Show">
+              <for each="clipFilters" as="f" key="filter">
+                <toggle-button size="sm" selected="{f.selected}" on-toggle="clip_filter:{f.filter}">{f.title}</toggle-button>
+              </for>
+            </toggle-group>
+            <spacer grow="1" />
+            <if test="{hasQueue}">
+              <badge>{queueSummary}</badge>
+            </if>
+          </row>
+          <separator />
+        </if>
+        <if test="{isQueueScreen}">
+          <row padding="8" gap="8" cross="center">
+            <text grow="1" foreground="text_muted">Paste Next pastes these in order, then removes them.</text>
+            <if test="{hasQueue}">
+              <button size="sm" variant="ghost" on-press="queue_clear">Clear Queue</button>
+            </if>
+          </row>
+          <separator />
+        </if>
+        <if test="{hasResults}">
+          <scroll grow="1" label="Results" value="{resultsOffset}" on-scroll="results_scrolled">
+            <list gap="2" padding="8">
+              <for each="results" as="r" key="id">
+                <if test="{r.hasHeader}">
+                  <row height="24" cross="end">
+                    <text foreground="text_muted">{r.header}</text>
+                  </row>
+                </if>
+                <list-item height="44" selected="{r.selected}" label="{r.a11y}" on-press="row_run:{r.id}">
+                  <row gap="10" cross="center" grow="1">
+                    <row width="36" height="28" main="center" cross="center">
+                      <if test="{r.hasThumb}">
+                        <image image="{r.thumb}" width="36" height="28" label="" />
+                      </if>
+                      <else>
+                        <icon name="{r.icon}" width="16" height="16" foreground="text_muted" />
+                      </else>
+                    </row>
+                    <column grow="1" gap="0">
+                      <text>{r.title}</text>
+                      <text foreground="text_muted">{r.subtitle}</text>
+                    </column>
+                    <if test="{r.queued}">
+                      <badge>{r.queueBadge}</badge>
+                    </if>
+                    <if test="{r.pinned}">
+                      <badge variant="secondary">Pinned</badge>
+                    </if>
+                    <text foreground="text_muted">{r.accessory}</text>
+                    <!-- Room for the overlay scrollbar and for fonts that measure
+                         narrower than they draw (the kind was clipped flush right). -->
+                    <spacer width="8" />
+                  </row>
+                </list-item>
+              </for>
+            </list>
+          </scroll>
+        </if>
+        <else>
+          <column grow="1" main="center" cross="center" padding="24">
+            <text wrap="true" foreground="text_muted">{emptyText}</text>
+          </column>
+        </else>
+      </else>
+      <separator />
+      <spacer height="48" />
+    </column>
+  </stack>
   <if test="{confirmInPanel}">
     <dialog text="{confirmTitle}" on-dismiss="confirm_cancel">
       <column gap="12">

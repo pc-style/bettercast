@@ -201,6 +201,27 @@ fn expectQuery(f: *Fixture, expected: []const u8) !void {
     try std.testing.expectEqualStrings(expected, field.text);
 }
 
+/// macOS publishes only the first `max_widget_accessibility_nodes` semantics
+/// nodes of a view, in tree order. However long the result list is, the
+/// panel's search field, Actions and Manage… must be inside that head.
+fn expectPanelAxHead(f: *Fixture) !void {
+    const nodes = f.harness.runtime.views[0].widgetSemantics();
+    const head = nodes[0..@min(nodes.len, native_sdk.platform.max_widget_accessibility_nodes)];
+    std.debug.print("panel semantics: {d} nodes, AX publishes the first {d}\n", .{ nodes.len, head.len });
+    var field = false;
+    var actions = false;
+    var manage = false;
+    for (head) |n| {
+        if (n.role == .textbox) field = true;
+        if (n.role == .button and std.mem.eql(u8, n.label, "Actions")) actions = true;
+        if (n.role == .button and std.mem.eql(u8, n.label, "Manage…")) manage = true;
+    }
+    if (!(field and actions and manage)) {
+        std.debug.print("\npublished AX head lacks: field={} actions={} manage={}\n", .{ !field, !actions, !manage });
+        return error.AxHeadIncomplete;
+    }
+}
+
 fn openSeededPanel(f: *Fixture) !void {
     try f.command("test.seed");
     try f.command("panel.show");
@@ -212,6 +233,7 @@ test "launcher keyboard: type, arrows, Return, Esc, cmd-K, Tab, accessible names
     defer f.destroy();
     try openSeededPanel(f);
     try f.printSnapshot("panel shown (empty query)");
+    try expectPanelAxHead(f);
 
     // 1. The search field has first focus (autofocus) and an accessible name.
     try expectSearchFocused(f);
@@ -224,6 +246,7 @@ test "launcher keyboard: type, arrows, Return, Esc, cmd-K, Tab, accessible names
     try f.expectSnapshotContains("name=\"Fixture Browser, Application\"");
     try f.expectSnapshotLacks("name=\"Q, Application\"");
     try f.printSnapshot("typed 'fix'");
+    try expectPanelAxHead(f);
     try std.testing.expectEqual(@as(i64, 0), f.model().selected);
 
     // 3. ArrowDown / ArrowUp move the model selection while typing focus stays.
@@ -336,6 +359,7 @@ test "launcher keyboard: type, arrows, Return, Esc, cmd-K, Tab, accessible names
     try expectSearchFocused(f);
     try f.expectSnapshotContains("name=\"Search clipboard history\"");
     try f.expectSnapshotContains("name=\"Back\"");
+    try expectPanelAxHead(f);
     try f.typeText("caf");
     try f.expectSnapshotContains("role=listitem name=\"naïve café — 日本語 ✓, Clipboard\"");
     try f.key("escape"); // clears the query
@@ -346,6 +370,18 @@ test "launcher keyboard: type, arrows, Return, Esc, cmd-K, Tab, accessible names
     try expectSearchFocused(f);
     try f.key("escape"); // empty query on root: hide
     try std.testing.expect(!f.model().panelVisible);
+
+    // 11. Opening Manage over a typed query resets the panel like hiding it
+    // does: the next open starts from an empty root search.
+    try f.command("panel.show");
+    try f.command("clipboard.open");
+    try f.typeText("caf");
+    try f.command("manage.snippets");
+    try std.testing.expect(!f.model().panelVisible);
+    try f.command("panel.show");
+    try std.testing.expect(f.model().screen == .root);
+    try expectQuery(f, "");
+    try expectSearchFocused(f);
 }
 
 // ---------------------------------------------------------------- views

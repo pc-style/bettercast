@@ -417,8 +417,10 @@ function aiFailed(model: Model, why: Uint8Array): Step {
 }
 
 function openManage(model: Model, tab: Model["manageTab"]): Step {
-  // The panel hides while Manage is in front (Raycast behaviour).
-  const m = { ...model, manageOpen: true, manageTab: tab, panelVisible: false, actionsOpen: false };
+  // The panel hides while Manage is in front (Raycast behaviour), and
+  // resets exactly like hidePanel: the next Opt+Space starts from an empty
+  // root search, not the query (or sub-screen) Manage was opened over.
+  const m: Model = { ...model, manageOpen: true, manageTab: tab, panelVisible: false, actionsOpen: false, screen: "root", query: emptyEdit(), selected: 0, searchEpoch: bump(model.searchEpoch) | 0 };
   return withWindow(m, model.manageOpen ? "show_manage" : "open_manage");
 }
 

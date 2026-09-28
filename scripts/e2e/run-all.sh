@@ -602,7 +602,7 @@ c_sequential_paste() {
   local got=""
   for _ in $(seq 1 20); do got="$(te_text queue || true)"; [[ "$got" == *"$QUEUE_B"* ]] && break; sleep 0.5; done
   echo "$got" > "$STATE/queue-result.txt"
-  python3 - "$got" "$QUEUE_A" "$QUEUE_B" <<'PY' || fail "TextEdit text '${got:0:160}' does not contain A before B"
+  python3 - "$got" "$QUEUE_A" "$QUEUE_B" <<'PY' || fail "TextEdit text '${got:0:160}' does not contain A before B; front $(T front); TextEdit docs: $(with_timeout 10 osascript -e 'tell application "TextEdit" to get name of every document' 2>&1 || true)"
 import sys
 t, a, b = sys.argv[1:4]
 ia, ib = t.find(a), t.find(b)
@@ -691,11 +691,18 @@ c_ax_tree() {
   A menu-command panel.show
   set_text "$V" "$FIELD" "fix"
   sleep 0.5
-  ax_dump panel || fail "ax-dump failed: $(cat "$OUT/ax/panel.err")"
-  local miss=()
-  local pat
-  for pat in 'Search Bettercast' 'Fixture Browser' 'Actions' 'Manage'; do
-    grep -q -- "$pat" "$OUT/ax/panel.txt" || miss+=("panel:$pat")
+  # The AX mirror updates after the canvas does: poll until the panel
+  # window's own subtree (not the tray menu or Manage) has every name.
+  local miss=() pat i
+  for ((i = 0; i < 10; i++)); do
+    ax_dump panel || fail "ax-dump failed: $(cat "$OUT/ax/panel.err")"
+    awk '/role=AXWindow /{w = /title="Bettercast"/} w' "$OUT/ax/panel.txt" > "$OUT/ax/panel-window.txt"
+    miss=()
+    for pat in 'Search Bettercast' 'Fixture Browser' 'description="Actions"' 'description="Manage…"'; do
+      grep -qF -- "$pat" "$OUT/ax/panel-window.txt" || miss+=("panel:$pat")
+    done
+    ((${#miss[@]} == 0)) && break
+    sleep 0.5
   done
   hide_panel
   local mf="$OUT/ax/manage-saved.txt"
@@ -742,6 +749,20 @@ c_no_errors() {
   ev "no dispatch errors; app alive"
 }
 
+# A failed Phase B check keeps what the next round needs to find the cause,
+# under logs/fail-<id>/: the app snapshot, frontmost app, the app's windows,
+# the pasteboard text and a desktop capture. Never changes the verdict.
+check_b() { # id fn
+  run_check "$1" "$2"
+  [[ "$(tail -n 1 "$OUT/checks.ndjson")" == *'"status": "fail"'* ]] || return 0
+  local d="$OUT/logs/fail-$1"
+  mkdir -p "$d"
+  SNAPSHOT > "$d/snapshot.txt" || true
+  { echo "front: $(T front 2>&1)"; echo "windows:"; T windows "$(app_pid)" 2>&1
+    echo "pasteboard: $(pbpaste 2>&1 | head -c 200)"; } > "$d/state.txt" || true
+  screencapture -x -t png "$d/desktop.png" 2>> "$d/state.txt" || true
+}
+
 # ================================================================== run
 run_check bundle c_bundle
 run_check permissions c_permissions
@@ -752,25 +773,25 @@ quit_app
 
 # Phase B: real OS integration.
 launch_app e2e phase-b > "$OUT/logs/launch-phase-b.log" 2>&1 || true
-run_check readiness c_readiness
-run_check launcher_command c_launcher_command
-run_check launcher_hotkey c_launcher_hotkey
-run_check keys_real c_keys_real
-run_check calculator c_calculator
-run_check snippet_create c_snippet_create
-run_check snippet_paste_textedit c_snippet_paste
-run_check snippet_edit c_snippet_edit
-run_check snippet_delete c_snippet_delete
-run_check clipboard_text c_clipboard_text
-run_check clipboard_concealed c_clipboard_concealed
-run_check clipboard_image_dedupe c_clipboard_image
-run_check sequential_paste c_sequential_paste
-run_check ai_fake c_ai_fake
-run_check hotkey_change c_hotkey_change
-run_check ax_tree c_ax_tree
-run_check reference_canvas c_reference_canvas
-run_check desktop_capture c_desktop_capture
-run_check no_errors c_no_errors
+check_b readiness c_readiness
+check_b launcher_command c_launcher_command
+check_b launcher_hotkey c_launcher_hotkey
+check_b keys_real c_keys_real
+check_b calculator c_calculator
+check_b snippet_create c_snippet_create
+check_b snippet_paste_textedit c_snippet_paste
+check_b snippet_edit c_snippet_edit
+check_b snippet_delete c_snippet_delete
+check_b clipboard_text c_clipboard_text
+check_b clipboard_concealed c_clipboard_concealed
+check_b clipboard_image_dedupe c_clipboard_image
+check_b sequential_paste c_sequential_paste
+check_b ai_fake c_ai_fake
+check_b hotkey_change c_hotkey_change
+check_b ax_tree c_ax_tree
+check_b reference_canvas c_reference_canvas
+check_b desktop_capture c_desktop_capture
+check_b no_errors c_no_errors
 te_close_all
 quit_app
 

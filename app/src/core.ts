@@ -330,41 +330,47 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
       if (!s.persist && s.window === "none") return next;
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
       ])];
     case "boot_delay":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.delay("boot", 1, "boot_go"),
       ])];
     case "locate":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         systemLocate(op.req, { key: "locate", ok: "located", err: "locate_failed" }),
       ])];
     case "scan_apps":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         systemScanApps(op.req, { key: "scan_apps", ok: "apps_scanned", err: "apps_scan_failed" }),
       ])];
     case "detect_providers":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         systemDetectProviders(op.req, { key: "providers", ok: "providers_detected", err: "providers_failed" }),
       ])];
     case "watch_start":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn(
           [op.helper, asciiBytes("watch"), asciiBytes("--hotkeys"), op.hotkeys, asciiBytes("--data-dir"), op.dataDir, asciiBytes("--images"), op.images],
@@ -374,28 +380,32 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "watch_stop":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.cancel("watch"),
       ])];
     case "watch_retry":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.delay("watch_retry", 3000, "watch_retry"),
       ])];
     case "write_paste":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.writeFile(op.path, op.bytes, { key: "paste_write", ok: "paste_written", err: "paste_write_failed" }),
       ])];
     case "paste":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn(
           [op.helper, asciiBytes("paste"), asciiBytes("--pid"), op.pid, asciiBytes("--file"), op.path, asciiBytes("--kind"), op.clipKind],
@@ -405,7 +415,8 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "copy":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn(
           [op.helper, asciiBytes("copy"), asciiBytes("--file"), op.path, asciiBytes("--kind"), op.clipKind],
@@ -415,14 +426,16 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "copy_text":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.clipboardWrite(op.text),
       ])];
     case "open_path":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn(
           [op.helper, asciiBytes("open"), asciiBytes("--path"), op.path],
@@ -432,42 +445,48 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "ax_status":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn([op.helper, asciiBytes("ax-status")], { key: "ax", collect: true, exit: "ax_done", err: "ax_failed" }),
       ])];
     case "ax_prompt":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.spawn([op.helper, asciiBytes("ax-prompt")], { key: "ax", collect: true, exit: "ax_done", err: "ax_failed" }),
       ])];
     case "delete_file":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.deleteFile(op.path, { ok: "clip_deleted", err: "clip_delete_failed" }),
       ])];
     case "write_ai_request":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.writeFile(op.path, op.bytes, { key: "ai_write", ok: "ai_request_written", err: "ai_write_failed" }),
       ])];
     case "ai_key_get":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.credentials.get("ai-api-key", { key: "cred", ok: "ai_key_loaded", err: "ai_key_missing" }),
       ])];
     case "ai_start":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         op.fake
           ? Cmd.spawn(
@@ -482,56 +501,64 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "ai_cancel":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.cancel("ai"),
       ])];
     case "api_key_read":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.clipboardRead({ key: "api_key_read", ok: "api_key_read", err: "api_key_read_failed" }),
       ])];
     case "api_key_set":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.credentials.set("ai-api-key", op.secret, { key: "cred", ok: "api_key_saved", err: "api_key_failed" }),
       ])];
     case "api_key_delete":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.credentials.delete("ai-api-key", { key: "cred", ok: "api_key_deleted", err: "api_key_failed" }),
       ])];
     case "login_status":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.launchAtLoginStatus({ key: "login", ok: "login_status", err: "login_failed" }),
       ])];
     case "login_set":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         Cmd.setLaunchAtLogin(op.enabled, { key: "login", ok: "login_status", err: "login_failed" }),
       ])];
     case "export_config":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         systemExportConfig(op.req, { key: "config", ok: "config_exported", err: "config_failed" }),
       ])];
     case "import_config":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         systemImportConfig(op.req, { key: "config", ok: "config_imported", err: "config_failed" }),
       ])];
@@ -540,7 +567,8 @@ export function update(model: Model, msg: Msg): Model | [Model, Cmd<Msg>] {
     case "thumb_load":
       return [next, Cmd.batch([
         s.persist ? Cmd.persist() : Cmd.none,
-        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" ? Cmd.hideWindow("main") : s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
+        s.window === "show_panel" ? Cmd.showWindow("main") : s.window === "hide_panel" || s.window === "open_manage" || s.window === "show_manage" ? Cmd.hideWindow("main") : Cmd.none,
+        s.window === "show_manage" ? Cmd.showWindow("manage") : Cmd.none,
         s.window === "open_manage" ? Cmd.setDockPresence(true) : s.window === "manage_closed" ? Cmd.setDockPresence(false) : Cmd.none,
         op.evictId > 0 ? Cmd.imageUnregister(op.evictId) : Cmd.none,
         Cmd.imageLoad(op.imageId, { path: op.path }, { event: "thumb_loaded" }),
