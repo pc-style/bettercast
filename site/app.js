@@ -1,7 +1,7 @@
 const questions = [
   {
-    id: 'foundation', title: 'What should the next Mac app be built with?', hint: 'Choose the base before we rebuild features.',
-    choices: ['Native Swift / AppKit + SwiftUI', 'Tauri + web UI', 'Improve the Sol / React Native fork', 'I want a tiny proof first'], recommended: 0,
+    id: 'foundation', title: 'How should we choose the next app’s foundation?', hint: 'React Native is not the default. A framework must prove the real workflow.',
+    choices: ['Whichever passes keyboard + agent tests', 'Swift / AppKit + SwiftUI', 'Native SDK (Zig + compiled TypeScript)', 'Rust (UI approach to prove next)'], recommended: 0,
   },
   {
     id: 'shape', title: 'What should its windows feel like?', hint: 'The pop-up was hard to use and test.',
