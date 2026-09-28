@@ -4,7 +4,7 @@ name: macOS test build
 # No signing secrets, notarization, release, appcast, or upload outside Actions artifacts.
 on:
   push:
-    branches: [bettercast-foundation, bettercast-product]
+    branches: [main, bettercast-foundation, bettercast-product]
   workflow_dispatch:
 
 permissions:

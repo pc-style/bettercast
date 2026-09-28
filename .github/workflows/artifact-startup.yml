@@ -1,0 +1,42 @@
+name: Delivered artifact startup diagnosis
+on:
+  push:
+    branches: [bettercast-foundation]
+    paths: [.github/workflows/artifact-startup.yml, scripts/ci/smoke-app.py]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  startup:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Bettercast-arm64-adhoc
+          run-id: 36384582782
+          github-token: ${{ github.token }}
+          path: downloaded
+      - name: Inspect exact delivered archive
+        run: |
+          cd downloaded
+          shasum -a 256 -c Bettercast-arm64-adhoc.zip.sha256
+          ditto -x -k Bettercast-arm64-adhoc.zip "$RUNNER_TEMP/exact-artifact"
+          codesign --verify --deep --strict "$RUNNER_TEMP/exact-artifact/Bettercast.app"
+          otool -l "$RUNNER_TEMP/exact-artifact/Bettercast.app/Contents/MacOS/bettercast" | grep -A3 LC_RPATH
+      - name: Launch exact delivered executable
+        run: python3 scripts/ci/smoke-app.py "$RUNNER_TEMP/exact-artifact/Bettercast.app" "$RUNNER_TEMP/native-smoke"
+      - name: Collect disposable runner crash reports
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-smoke"
+          sleep 5
+          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -iname 'bettercast*' -exec cp {} "$RUNNER_TEMP/native-smoke/" \; 2>/dev/null || true
+          cat "$RUNNER_TEMP/native-smoke/launch.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: delivered-startup-evidence
+          path: ${{ runner.temp }}/native-smoke
+          retention-days: 7
