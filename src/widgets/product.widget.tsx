@@ -77,6 +77,8 @@ const Shell: FC<{ title: string; children: React.ReactNode }> = ({
 const ImportScreen = observer(() => {
 	const { migration, ui } = useStore();
 	const [raw, setRaw] = useState("");
+	const [mappingFilter, setMappingFilter] = useState("");
+	const [mappingSource, setMappingSource] = useState<string | null>(null);
 	const apply = () =>
 		ui.confirm("Apply selected import items?", () => migration.apply());
 	return (
@@ -88,7 +90,7 @@ const ImportScreen = observer(() => {
 				<Notice
 					tone="warning"
 					title="Paste an export you chose"
-					detail="Bettercast never reads Raycast files, private history, or product documents. Mappings are not supported yet; bindings remain disabled."
+					detail="Only the JSON you supply is previewed. Map commands explicitly below. Imported aliases and shortcuts are saved disabled for review; history and takeover settings are not imported."
 				/>
 				<Field
 					value={raw}
@@ -120,6 +122,59 @@ const ImportScreen = observer(() => {
 						detail={migration.previewError}
 					/>
 				)}
+				{migration.current?.warnings.map((warning) => (
+					<Notice key={warning} title="Import note" detail={warning} />
+				))}
+				{[
+					...new Set(
+						migration.current?.entries.flatMap((e) =>
+							e.sourceCommandId ? [e.sourceCommandId] : [],
+						) ?? [],
+					),
+				].map((source) => (
+					<View
+						key={source}
+						className="gap-2 rounded-lg border border-color p-3"
+					>
+						<Text className="text text-xs">
+							{source} →{" "}
+							{migration.commandTargets.find(
+								(c) => c.id === migration.commandMappings[source],
+							)?.title ?? "Not mapped"}
+						</Text>
+						<Button
+							label="Choose Bettercast command"
+							onPress={() => {
+								setMappingSource(source);
+								setMappingFilter("");
+							}}
+						/>
+						{mappingSource === source && (
+							<View className="gap-1">
+								<Field
+									value={mappingFilter}
+									set={setMappingFilter}
+									placeholder="Find destination command"
+								/>
+								{migration.commandTargets
+									.filter((c) =>
+										c.title.toLowerCase().includes(mappingFilter.toLowerCase()),
+									)
+									.slice(0, 12)
+									.map((c) => (
+										<Button
+											key={c.id}
+											label={c.title}
+											onPress={() => {
+												migration.mapCommand(source, c.id);
+												setMappingSource(null);
+											}}
+										/>
+									))}
+							</View>
+						)}
+					</View>
+				))}
 				{migration.current &&
 					(["import", "conflict", "unsupported", "skip"] as const).map(
 						(outcome) => {
@@ -161,21 +216,19 @@ const ImportScreen = observer(() => {
 							detail={
 								migration.report.failed.length
 									? `${migration.report.failed.length} failed`
-									: "No failures reported by storage."
+									: `${migration.report.staged} bindings saved disabled; ${migration.report.unsupportedHistory} history entries not imported.`
 							}
 						/>
-						{migration.report.canRollback && (
-							<Button
-								label="Rollback this import"
-								danger
-								onPress={() =>
-									ui.confirm("Rollback this import?", () =>
-										migration.rollback(),
-									)
-								}
-							/>
-						)}
 					</View>
+				)}
+				{migration.rollbackAvailable && (
+					<Button
+						label="Rollback last saved import"
+						danger
+						onPress={() =>
+							ui.confirm("Rollback this import?", () => migration.rollback())
+						}
+					/>
 				)}
 			</ScrollView>
 		</Shell>
@@ -344,7 +397,7 @@ const QuicklinksScreen = observer(() => {
 });
 
 const HotkeysScreen = observer(() => {
-	const { commands } = useStore();
+	const { commands, product } = useStore();
 	const [filter, setFilter] = useState("");
 	const [values, setValues] = useState<Record<string, string>>({});
 	const [error, setError] = useState("");
@@ -353,8 +406,34 @@ const HotkeysScreen = observer(() => {
 			<ScrollView contentContainerStyle={{ padding: 12, gap: 7 }}>
 				<Notice
 					title="Shortcuts are opt-in"
-					detail="No defaults are assigned here and Bettercast never takes over a conflicting shortcut. Enter forms like command+shift+k."
+					detail="No defaults are assigned. Bettercast checks its own bindings and known coexistence shortcuts; other apps' global shortcuts cannot all be detected. Enter forms like command+shift+k."
 				/>
+				{product.state.imports.stagedBindings.map((binding) => (
+					<View
+						key={binding.id}
+						className="gap-2 p-3 rounded-lg border border-color"
+					>
+						<Text className="text text-xs">
+							Imported {binding.kind ?? "shortcut"}: {binding.binding} →{" "}
+							{commands.commands.find((c) => c.id === binding.commandId)
+								?.title ?? binding.commandId}
+						</Text>
+						<Button
+							label="Use in editor (does not enable)"
+							onPress={() => {
+								setFilter(
+									commands.commands.find((c) => c.id === binding.commandId)
+										?.title ?? binding.commandId,
+								);
+								setValues((v) => ({
+									...v,
+									[`${binding.kind === "alias" ? "a" : ""}${binding.commandId}`]:
+										binding.binding,
+								}));
+							}}
+						/>
+					</View>
+				))}
 				<Field value={filter} set={setFilter} placeholder="Filter commands" />
 				{commands.commands
 					.filter((c) =>
@@ -390,7 +469,10 @@ const HotkeysScreen = observer(() => {
 							<Button
 								label="Assign"
 								onPress={() => {
-									const r = commands.setHotkey(c.id, values[c.id] || null);
+									const r = commands.setHotkey(
+										c.id,
+										(values[c.id] ?? c.hotkey) || null,
+									);
 									setError(
 										r.ok
 											? ""
@@ -470,7 +552,9 @@ const MCP = observer(() => {
 		model: "",
 	});
 	const [error, setError] = useState("");
-	useEffect(() => { void ai.initialize().catch(e => setError(String(e))); }, [ai]);
+	useEffect(() => {
+		void ai.initialize().catch((e) => setError(String(e)));
+	}, [ai]);
 	const put = (k: string) => (v: string) => setF((x) => ({ ...x, [k]: v }));
 	return (
 		<Shell title="Providers & MCP approvals">
@@ -504,12 +588,22 @@ const MCP = observer(() => {
 						<Field
 							value={f.endpoint ?? ""}
 							set={put("endpoint")}
-							placeholder="https://endpoint.example/v1"
+							placeholder="https://endpoint.example/v1/chat/completions"
 						/>
-						<Field value={f.model} set={put("model")} placeholder="Model identifier" />
+						<Field
+							value={f.model}
+							set={put("model")}
+							placeholder="Model identifier"
+						/>
 						<View className="flex-row gap-2">
-							<Button label={`Images: ${f.images === "yes" ? "on" : "off"}`} onPress={() => put("images")(f.images === "yes" ? "no" : "yes")} />
-							<Button label={`Tool calls: ${f.tools === "yes" ? "on" : "off"}`} onPress={() => put("tools")(f.tools === "yes" ? "no" : "yes")} />
+							<Button
+								label={`Images: ${f.images === "yes" ? "on" : "off"}`}
+								onPress={() => put("images")(f.images === "yes" ? "no" : "yes")}
+							/>
+							<Button
+								label={`Tool calls: ${f.tools === "yes" ? "on" : "off"}`}
+								onPress={() => put("tools")(f.tools === "yes" ? "no" : "yes")}
+							/>
 						</View>
 						<Field
 							secure
@@ -531,7 +625,10 @@ const MCP = observer(() => {
 										tools: f.tools === "yes",
 										apiKey: f.key || undefined,
 									})
-									.then(() => { put("key")(""); setError(""); })
+									.then(() => {
+										put("key")("");
+										setError("");
+									})
 									.catch((e) => setError(String(e)))
 							}
 						/>
@@ -541,7 +638,7 @@ const MCP = observer(() => {
 						<Notice
 							tone="warning"
 							title="Saved disabled"
-							detail="Adding a server does not contact or execute it. Explicitly enable it below; every discovered tool starts off disabled."
+							detail="Adding a server does not contact or execute it. Enabling a local stdio server runs trusted, unrestricted code with your user permissions. Tool approvals constrain Bettercast calls, not that process. Discovered tools start disabled."
 						/>
 						<Field value={f.id ?? ""} set={put("id")} placeholder="Server ID" />
 						<Field value={f.name ?? ""} set={put("name")} placeholder="Name" />
@@ -586,6 +683,10 @@ const MCP = observer(() => {
 										target: f.target,
 										args: f.args?.split("\n").filter(Boolean),
 										apiKey: f.key || undefined,
+									})
+									.then(() => {
+										put("key")("");
+										setError("");
 									})
 									.catch((e) => setError(String(e)))
 							}

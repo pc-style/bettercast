@@ -1,59 +1,45 @@
-# Bettercast implementation plan
+# Bettercast implementation and acceptance
 
-This is a staged plan for a complete daily launcher **and** AI workspace, not a list of shipped features. The first-slice source exists, but review and integration are ongoing and the running native app has not been verified. Clipboard capture is intentionally unavailable in the fork right now: inherited clipboard code is not wired into native startup. This checkout has only Command Line Tools: `xcodebuild` fails without full Xcode, so app build/runtime and visual checks are blocked. The private product brief and personal inventory remain outside this repository; only general requirements and synthetic fixtures belong here. No automatic shortcut takeover, import, or cutover.
+The product branch is `bettercast-product`, based on the isolated `bettercast-foundation` branch. It retains [Sol's MIT-licensed foundation](https://github.com/ospfranco/sol/commit/5a3034b511ba83c3225f662496f78fe5e3b8f661). The private brief, exports, credentials and personal history must stay outside Git and build artifacts. No automatic import, shortcut/login takeover, installation or cutover is part of development.
 
-The selected base is [Sol at `5a3034b`](https://github.com/ospfranco/sol/commit/5a3034b511ba83c3225f662496f78fe5e3b8f661), retained under MIT with `upstream` pointing to `https://github.com/ospfranco/sol.git`. Preserve attribution, review upstream fixes, and keep later feature commits small enough to merge them. No commit or release is implied by this plan.
+## Implemented product paths
 
-## Foundation and ordering
+- Local launcher/search and existing window actions remain available independently of AI. Shared command metadata drives aliases, reviewed direct hotkeys, snippets, URL-encoded quicklinks and confirmed scripts. TypeScript manifests declare a runtime and entry point; execution starts only after confirmation. This is not a sandbox for untrusted code.
+- Readable Raycast JSON gets a selective preview, unsupported-field reporting, explicit command mapping and a persisted rollback receipt. Snippets and supported quicklink templates are imported selectively. Aliases and shortcuts are staged disabled for review. Encrypted Raycast archives, keyword expansion, history and setting behaviors without a safe mapping are reported rather than guessed or activated. Rollback refuses to overwrite later edits.
+- Clipboard capture defaults off. The encrypted SQLCipher FTS index pages text, original-image and file-reference occurrences without loading the archive into JavaScript. Original payloads and thumbnails use AES-GCM with a Bettercast-specific Keychain key. Default retention is 30 days with a configurable cap, pins, exclusions, pause and private mode. The cap can shorten retention and pinned data can exceed it; both are visible. File references do not copy file contents.
+- The paste queue keeps resolved snapshots in user order and persists its position. Before delivery it records an interruption checkpoint; a restart never repeats a paste automatically. Focus changes stop delivery. A dispatched keystroke is not proof the destination accepted it. Deleting clipboard records also removes their queue previews.
+- AI starts on demand. Drafts and conversations persist encrypted locally. The installed Claude CLI adapter supports streaming text with its tools disabled. A user-configured chat-completions endpoint can accept images and tools when declared supported. Attachments have content/size preview and aggregate limits; unsupported PDF extraction is explicit. Stop, retry, copy and focus-guarded insertion are implemented. Selection replacement, selection capture, conversation export/edit/delete are not yet available.
+- MCP uses actual HTTP or stdio JSON-RPC initialize/discovery/call paths, bounded streams and cancellation. Every model-requested call requires exact per-call host approval. Session/always grants are not offered. A real enabled search tool is required for web search; source cards come from returned URLs, not invented citations. Providers and MCP servers are never configured automatically. Process helpers are on demand, not per-extension residents.
 
-0. **Buildable, isolated base — incomplete.** Preserve app/command search, keyboard navigation, existing actions, shortcuts, and window management without overwriting Sol's identity, data, or installed app. Typecheck and JS bundling pass, but full Xcode is absent, so even an unmodified native base build was not established here; the fork's debug build (`bun macos`) and launch/search smoke test remain open. Use a temporary nonconflicting shortcut during development.
-1. **Dependable daily core — source slice only.** Snippet CRUD/search/paste integration and script confirmation are in source; verify their UI/focus/cancel behavior. Restore clipboard capture deliberately, then build indexed, paged history for text, original images, and file references with 30-day default retention, visible configurable disk budget, restart persistence, type/time filters, privacy pause/exclusions/deletion, and no full archive in hot memory. Add ordered sequential paste (paste-next, pause, skip, reverse/restart, interruption state), quicklinks, aliases, hotkeys, and a shared command registry with a minimal TypeScript extension path that does not require editing core. Test a representative synthetic mixed archive of at least 10,000 items; no real personal history by default. Daily retrieval must work offline and independently of AI.
-2. **Capable AI workspace — source slice only.** Text-only, single-turn installed-Claude CLI source and native process bridge are implemented with tools-off safe mode and no session persistence. Synthetic process tests cover stdin as data, errors, output limits, cancellation, and timeouts; an opt-in live bridge probe returned `BETTERCAST_AI_OK`. This does not verify UI behavior or the complete AI journey. The replacement target adds streaming chat and quick actions, provider/model choice via verified legitimate adapters (installed CLI first, no assumed API access), attachments with explicit content/size preview, actual web search with source links, local conversation history, and stop/retry/copy/explicit insertion. Add actual local and remote MCP tool discovery/invocation only with enforced, revocable, per-action approvals and visible tool results. Read-only network calls can disclose data; a decorative permission screen is not enforcement. Codex remains deferred because its read-only sandbox allows tools; Grok support is unconfirmed. AI and extension hosts start on demand and must not block local search.
-3. **Mature modules later.** Optional OCR, selected extension ports, richer file/context actions, translation, notes, and optional AI-assisted extension authoring follow only after core reliability. Generated extensions start disabled and require review and approval. Avoid an always-running runtime per extension.
+## Evidence and remaining acceptance
 
-Each stage should have targeted automated checks plus a native smoke/visual check where UI changes; none of these checks should use a personal Raycast export, credential, or clipboard record. Release engineering (fork identity, signing, notarization, updater feed, and distribution) is a separate later decision; the inherited upstream lane is disabled.
+[The first integrated product CI run](https://github.com/pc-style/bettercast/actions/runs/36385690102) built the production arm64 app with Xcode 16.4 on macOS 15 and passed native process/storage suites, including 10,000 mixed synthetic clipboard records and encrypted reopen/wrong-key checks. It passed signature, dependency and archive-roundtrip checks. **That run did not launch the app.** The delivered foundation artifact subsequently reproduced a missing `AppDelegate.init()` crash. The product now includes the explicit default initializer and the build-owner's launch smoke step. Check the next run before treating a downloadable app as runnable.
 
-## Acceptance gaps and budgets
+Source suites cover selective imports, rollback conflicts, shortcut collisions, queue interruption, missed modifier key-up, attachment/provider preflight, streaming/cancel cleanup and MCP approval boundaries. MCP/provider fixtures are synthetic; they do not establish compatibility with a real provider or external server. Browser-rendered production components provide layout evidence only, not macOS behavior.
 
-The first slice is **not P0 replacement readiness**. Still open: native base build and UI checks; verified clipboard capture/search/retention/privacy and mixed sequential paste; shared command registry and installable TypeScript extension with failure isolation; rich AI streaming, attachments, provider choice, real cited search, local history and enforced MCP approvals; migration preview and rollback. A text chat box does not satisfy the AI target. Validate shortcuts and any import against the user's current setup privately; never infer them from an old inventory. Trial and cutover require explicit user approval, with the existing launcher left installed and a restoration path.
+Before daily use, verify on a disposable native profile with synthetic data:
 
-**Known first-slice limits:** Snippet paste uses upstream clipboard overwrite and simulated insertion; it neither restores the prior clipboard nor verifies delivery to the destination. Corrupt shared runtime state fails closed, but only the snippets screen shows a read-only status; other consumers currently report to the console. Claude cancellation is not a process-tree sandbox. The installed Claude CLI bridge passed a live probe, but portability of its PATH-dependent Node wrapper has not been tested. None of these checks establishes native app behavior.
+1. Launch, search, keyboard navigation, panel show/hide and error screens. Check the actual app render; a live process alone is insufficient.
+2. Enable capture explicitly, then copy text, original PNG/JPEG/TIFF and file references. Search, preview, copy/save, delete, pin and restart. Verify pause/exclusions and the no-capture startup default. Inspect encrypted database/WAL/payload behavior and Keychain failure handling. SQLCipher closes the plaintext-index design gap, but this is not yet complete privacy acceptance or a forensic-erasure guarantee.
+3. Exercise mixed sequential paste, focus changes, crash/restart, skip/reverse/pause and deletion of queued items. Never infer destination success from simulated keys alone.
+4. Preview synthetic Raycast JSON, map commands, selectively import, inspect disabled bindings, then rollback. Do not use a real export or history as a fixture.
+5. Use explicitly configured provider access to test streaming, image attachments, Stop/retry, error recovery and persisted history. Approve and deny actual read/network/write tool calls and inspect real sources. No credentials or provider spending is assumed by CI.
+6. Reproduce generic autocomplete/held-Hyper scenarios: modifier key-up, hiding while held, switching focus, sleep/wake, event-tap timeout/disable and recovery. Source changes reset held state; they do not establish the cause of the reported Tinycast/Goldfish freeze.
 
-| Measure | Proposed target, **not measured** | Current evidence |
-| --- | --- | --- |
-| Idle resident memory, all owned processes | Aim 50–75 MB; investigate sustained >100 MB | No running native app measurement. |
-| Warm activation to accepting input | p95 <100 ms, stretch <50 ms | No runtime measurement. |
-| First usable clipboard result page, 10k mixed synthetic items | p95 <100 ms | Capture/index and workload test not implemented. |
-| Clipboard retention/storage | 30 days by default, configurable cap with visible conflict handling | Capture unavailable; no retention benchmark. |
-| Idle AI/OCR/extension helpers | Exit/unload after task, initial grace period ≤60 s | Swift process synthetic tests pass; no app-wide lifecycle measurement. |
-
-Use the same memory metric and include child processes; active AI memory is separate from the idle target. A target miss needs an explained tradeoff, not a hidden reduction in retention or a narrowed measurement.
-
-## Verification
-
-From the repository root, the following commands reproduce the independently reported source checks (the last probe uses an installed, authenticated Claude CLI and is optional):
+## Reproducible checks
 
 ```sh
+bun install --frozen-lockfile
 bun run typecheck
-bun test ./src/lib/foundation.test.js ./src/stores/snippet-persistence.test.js
-bunx react-native bundle --platform macos --dev false --entry-file index.js --bundle-output .amp/in/artifacts/bettercast.jsbundle --assets-dest .amp/in/artifacts/assets
-swiftc macos/sol-macOS/lib/AIProcess.swift scripts/test-ai-process.swift -o .amp/in/artifacts/test-ai-process
-.amp/in/artifacts/test-ai-process
-# Optional live provider check; sends only the synthetic probe prompt to Claude:
-.amp/in/artifacts/test-ai-process --claude-probe
+bun test ./src
+bun test ./scripts/test-ai-lifecycle.js
+scripts/ci/check-macho-deps.test.sh
 ```
 
-The final typecheck passed; the combined Bun suites passed 7 tests with 23 assertions (foundation alone: 4 tests, 13 assertions); targeted Biome lint on seven new files and the production JS bundle passed. Swift compilation and the synthetic process suite passed after SIGPIPE and drain/cancel race fixes, as did the optional live Claude bridge probe. This does not mean a complete native build passed. `xcodebuild -version` fails here because full Xcode is missing. After installing Xcode, build and run the fork, verify search, snippets, paste, script confirm/cancel, and AI success/error/cancel in the UI, inspect representative rendered states, and review permissions and isolation before treating these as shipped.
+The macOS workflow compiles the standalone AIProcess and AIWorkspace suites, then compiles ClipboardRepository with the pinned SQLCipher framework and `CLIPBOARD_TEST`. See `.github/workflows/macos-build.yml` for exact compiler/linker inputs. It also compiles the production app, signs it ad hoc, verifies its extracted ZIP and launches the packaged executable in a disposable runner without granting Accessibility or TCC permissions. A screenshot is inspected separately when available.
 
-## Why this foundation
+Performance budgets remain targets, not measured claims: warm activation p95 under 100 ms, first clipboard result page p95 under 100 ms at 10,000 records, and idle resident memory around 50–75 MB including owned helpers. Measure the actual app and all children before claiming these. Synthetic database timings do not establish end-to-end latency.
 
-Snapshot comparison for choosing a fork, not a feature parity claim:
+## Distribution is separate from cutover
 
-| Project | Licensing / shape | Relevance |
-| --- | --- | --- |
-| [Sol](https://github.com/ospfranco/sol) ([license](https://github.com/ospfranco/sol/blob/main/LICENSE), [releases](https://github.com/ospfranco/sol/releases/tag/2.1.362)) | MIT, native macOS/React Native launcher; roughly 35.5k source LOC in the comparison snapshot; release 2.1.362 on September 20, 2026 | Small, recently released daily launcher foundation. |
-| [SuperCmd](https://github.com/SuperCmdLabs/SuperCmd) ([license](https://github.com/SuperCmdLabs/SuperCmd/blob/main/LICENSE)) | MIT, Electron; roughly 84.7k source LOC in the comparison snapshot | More built-in AI and extension breadth, but a larger Electron base. |
-| [Kunkun](https://github.com/kunkunsh/kunkun) ([license](https://github.com/kunkunsh/kunkun/blob/develop/LICENSE), [commits](https://github.com/kunkunsh/kunkun/commits/develop/)) | GPL-3.0, cross-platform Tauri; latest visible develop commit January 18, 2026 | Different licensing and older visible activity than Sol's September release. |
-| [Tinycast](https://github.com/abue-ammar/tinycast) ([license](https://github.com/abue-ammar/tinycast/blob/main/LICENSE)) | AGPL-3.0-or-later, native Swift | Interesting reference for specific workflows, not an MIT-compatible code source to copy into this fork. |
-
-LOC figures are approximate source-snapshot estimates, not a reproducible live GitHub metric. Keep licenses separate: do not copy GPL/AGPL implementation code into this MIT fork without a deliberate license decision.
+CI artifacts are Apple Silicon, ad hoc signed and not notarized. They are temporary test downloads, not a release channel. Leave the existing launcher installed and unchanged. No default global shortcut is registered. Never disable Gatekeeper globally; use Apple's per-app approval only after deciding to trust a specific artifact. The upstream release lane, updater and publishing paths remain disabled.

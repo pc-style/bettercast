@@ -152,25 +152,29 @@ export function createClipboardStore(root: IRootStore) {
 			}
 		},
 		async act(id: string, action: ClipAction): Promise<DeliveryResult> {
+			if (action === "delete" && queueBusy)
+				return {
+					status: "failed",
+					message: "Wait for the pending queue operation before deleting.",
+				};
+			if (action === "delete") queueBusy = true;
 			try {
 				const result = await request("action", { id, action });
 				if (["delete", "pin", "unpin"].includes(action))
 					await store.load(store.query);
-				if (
-					action === "delete" &&
-					store.queue.items.some((item) => item.id === id)
-				)
-					changeQueue((queue) => ({
-						...queue,
-						state: {
-							status: "interrupted",
-							reason:
-								"A queued item was deleted. Skip it or create a new queue.",
-						},
-					}));
+				if (action === "delete") {
+					// Native deletion removes queue previews in the same transaction.
+					// Reload that result; never write the stale in-memory snapshot back.
+					const status = await request("status");
+					runInAction(() => {
+						store.queue = restoreQueue(status.queue);
+					});
+				}
 				return result;
 			} catch (error) {
 				return { status: "failed", message: String(error) };
+			} finally {
+				if (action === "delete") queueBusy = false;
 			}
 		},
 		async configure(partial: Partial<ClipboardConfig>) {
@@ -192,7 +196,7 @@ export function createClipboardStore(root: IRootStore) {
 		},
 		resumeCapture() {
 			root.ui.confirm(
-				"Enable clipboard capture? Payloads and search index are owner-only local files, not app-encrypted. FileVault is recommended. No history is imported.",
+				"Enable capture for synthetic trial data? SQLCipher and encrypted payload storage are implemented but native privacy acceptance is pending. Do not copy sensitive data during this trial. No history is imported.",
 				() => {
 					void request("configure", {
 						config: { enabled: true, paused: false, pauseUntil: 0 },

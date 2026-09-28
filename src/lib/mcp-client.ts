@@ -107,6 +107,7 @@ export class MCPClient implements ToolExecutor {
 		this.requireTools();
 		const tools: MCPTool[] = [];
 		let cursor: string | undefined;
+		const cursors = new Set<string>();
 		do {
 			const result = (await this.request(
 				"tools/list",
@@ -124,6 +125,18 @@ export class MCPClient implements ToolExecutor {
 					tools.push(tool);
 				else throw new MCPError("PROTOCOL", "Invalid MCP tool definition");
 			cursor = result.nextCursor;
+			if (
+				tools.length > 1000 ||
+				(cursor &&
+					(typeof cursor !== "string" ||
+						cursors.has(cursor) ||
+						cursors.size >= 100))
+			)
+				throw new MCPError(
+					"PROTOCOL",
+					"Tool discovery exceeded bounded pagination",
+				);
+			if (cursor) cursors.add(cursor);
 		} while (cursor);
 		return tools;
 	}
@@ -148,6 +161,7 @@ export class MCPClient implements ToolExecutor {
 
 	async close(): Promise<void> {
 		this.initialized = undefined;
+		this.sessionId = undefined;
 		await this.options.transport.close?.();
 	}
 
@@ -195,6 +209,8 @@ export class MCPClient implements ToolExecutor {
 		parentSignal?: AbortSignal,
 		negotiated = true,
 	): Promise<RPCResponse | undefined> {
+		if (parentSignal?.aborted)
+			throw new MCPError("CANCELLED", "MCP request cancelled");
 		const controller = new AbortController();
 		const onAbort = () => controller.abort();
 		parentSignal?.addEventListener("abort", onAbort, { once: true });
@@ -315,49 +331,59 @@ async function readSSEResponse(
 	const reader = response.body.getReader();
 	let buffer = "";
 	let pending: number[] = [];
-	while (true) {
-		if (signal.aborted)
-			throw new MCPError("CANCELLED", "MCP request cancelled");
-		const { value, done } = await reader.read();
-		if (value) {
-			const bytes = pending.concat(Array.from(value as Uint8Array));
-			let lead = bytes.length - 1;
-			while (lead >= 0 && (bytes[lead] & 0xc0) === 0x80) lead--;
-			const width =
-				lead < 0 || bytes[lead] < 0xc0
-					? 1
-					: bytes[lead] >= 0xf0
-						? 4
-						: bytes[lead] >= 0xe0
-							? 3
-							: 2;
-			pending =
-				lead >= 0 && bytes.length - lead < width ? bytes.splice(lead) : [];
-			buffer += decodeURIComponent(
-				bytes.map((byte) => `%${byte.toString(16).padStart(2, "0")}`).join(""),
-			);
-		}
-		let boundary: number;
-		while ((boundary = buffer.search(/\r?\n\r?\n/)) >= 0) {
-			const frame = buffer.slice(0, boundary);
-			const separator = buffer.slice(boundary).match(/^\r?\n\r?\n/)![0];
-			buffer = buffer.slice(boundary + separator.length);
-			const data = frame
-				.split(/\r?\n/)
-				.filter((line) => line.startsWith("data:"))
-				.map((line) => line.slice(5).trimStart())
-				.join("\n");
-			if (data) {
-				let value: any;
-				try {
-					value = JSON.parse(data);
-				} catch {
-					throw new MCPError("PROTOCOL", "Malformed MCP SSE JSON");
-				}
-				if (value.id === expectedId) return value;
+	let received = 0;
+	try {
+		while (true) {
+			if (signal.aborted)
+				throw new MCPError("CANCELLED", "MCP request cancelled");
+			const { value, done } = await reader.read();
+			if (value) {
+				received += value.length;
+				if (received > 4_194_304)
+					throw new MCPError("PROTOCOL", "MCP response exceeded size limit");
+				const bytes = pending.concat(Array.from(value as Uint8Array));
+				let lead = bytes.length - 1;
+				while (lead >= 0 && (bytes[lead] & 0xc0) === 0x80) lead--;
+				const width =
+					lead < 0 || bytes[lead] < 0xc0
+						? 1
+						: bytes[lead] >= 0xf0
+							? 4
+							: bytes[lead] >= 0xe0
+								? 3
+								: 2;
+				pending =
+					lead >= 0 && bytes.length - lead < width ? bytes.splice(lead) : [];
+				buffer += decodeURIComponent(
+					bytes
+						.map((byte) => `%${byte.toString(16).padStart(2, "0")}`)
+						.join(""),
+				);
 			}
+			let boundary: number;
+			while ((boundary = buffer.search(/\r?\n\r?\n/)) >= 0) {
+				const frame = buffer.slice(0, boundary);
+				const separator = buffer.slice(boundary).match(/^\r?\n\r?\n/)![0];
+				buffer = buffer.slice(boundary + separator.length);
+				const data = frame
+					.split(/\r?\n/)
+					.filter((line) => line.startsWith("data:"))
+					.map((line) => line.slice(5).trimStart())
+					.join("\n");
+				if (data) {
+					let value: any;
+					try {
+						value = JSON.parse(data);
+					} catch {
+						throw new MCPError("PROTOCOL", "Malformed MCP SSE JSON");
+					}
+					if (value.id === expectedId) return value;
+				}
+			}
+			if (done) break;
 		}
-		if (done) break;
+		throw new MCPError("PROTOCOL", "MCP SSE ended without matching response");
+	} finally {
+		await reader.cancel();
 	}
-	throw new MCPError("PROTOCOL", "MCP SSE ended without matching response");
 }

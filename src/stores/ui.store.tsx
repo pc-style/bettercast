@@ -507,11 +507,24 @@ export const createUIStore = (root: IRootStore) => {
 			});
 		},
 		get catalog(): Item[] {
-			return [...store.apps,...baseItems,...store.customItems,...(root.scripts?.scripts??[]),...(root.snippets?.items??[]),...(root.commands?.extraItems??[]),...(store.showInAppBrowserBookMarks?store.bookmarks:[])].map(item=>({...item,alias:root.product?.state.aliases[item.id]??item.alias}));
+			return [
+				...store.apps,
+				...baseItems,
+				...store.customItems,
+				...(root.scripts?.scripts ?? []),
+				...(root.snippets?.items ?? []),
+				...(root.commands?.extraItems ?? []),
+				...(store.showInAppBrowserBookMarks ? store.bookmarks : []),
+			].map((item) => ({
+				...item,
+				alias: root.product?.state.aliases[item.id] ?? item.alias,
+			}));
 		},
 		get items(): Item[] {
 			const allItems = store.catalog;
-			const snippetVersion = JSON.stringify(allItems.map(({ id, name, alias, url }) => [id, name, alias, url]));
+			const snippetVersion = JSON.stringify(
+				allItems.map(({ id, name, alias, url }) => [id, name, alias, url]),
+			);
 			if (snippetVersion !== indexedSnippets) {
 				minisearch.removeAll();
 				indexedSnippets = snippetVersion;
@@ -539,7 +552,10 @@ export const createUIStore = (root: IRootStore) => {
 				prefix: true,
 				fuzzy: true,
 			}) as unknown as RankedItem[];
+			const currentById = new Map(allItems.map((item) => [item.id, item]));
 			for (const result of results) {
+				// Search stores metadata, not authority to execute an old callback.
+				Object.assign(result, currentById.get(result.id));
 				result.matchTier = getMatchTier(result);
 			}
 
@@ -782,7 +798,6 @@ export const createUIStore = (root: IRootStore) => {
 				} catch (_) {
 					store.temporaryResult = null;
 				}
-
 			}
 		},
 		updateApps: (
@@ -943,7 +958,10 @@ export const createUIStore = (root: IRootStore) => {
 		setCalendarEnabled: (v: boolean) => {
 			store.calendarEnabled = v;
 			if (v) root.calendar.onShow();
-			else { root.calendar.events = []; root.calendar.calendars = []; }
+			else {
+				root.calendar.events = [];
+				root.calendar.calendars = [];
+			}
 			solNative.setUpcomingEventEnabled(v && store.showUpcomingEvent);
 		},
 		setShowAllDayEvents: (v: boolean) => {
@@ -968,24 +986,36 @@ export const createUIStore = (root: IRootStore) => {
 			const safariBookmarks = await store.getSafariBookmarks();
 
 			const sources = [
-				{ id: "brave", favicon: Assets.Brave, path: `/Users/${store.username}/Library/Application Support/BraveSoftware/Brave-Browser/Default/Bookmarks` },
-				{ id: "chrome", favicon: Assets.Chrome, path: `/Users/${store.username}/Library/Application Support/Google/Chrome/Default/Bookmarks` },
-				{ id: "vivaldi", favicon: Assets.Vivaldi, path: `/Users/${store.username}/Library/Application Support/Vivaldi/Default/Bookmarks` },
-				{ id: "edge", favicon: Assets.Edge, path: `/Users/${store.username}/Library/Application Support/Microsoft Edge/Default/Bookmarks` },
+				{
+					id: "brave",
+					favicon: Assets.Brave,
+					path: `/Users/${store.username}/Library/Application Support/BraveSoftware/Brave-Browser/Default/Bookmarks`,
+				},
+				{
+					id: "chrome",
+					favicon: Assets.Chrome,
+					path: `/Users/${store.username}/Library/Application Support/Google/Chrome/Default/Bookmarks`,
+				},
+				{
+					id: "vivaldi",
+					favicon: Assets.Vivaldi,
+					path: `/Users/${store.username}/Library/Application Support/Vivaldi/Default/Bookmarks`,
+				},
+				{
+					id: "edge",
+					favicon: Assets.Edge,
+					path: `/Users/${store.username}/Library/Application Support/Microsoft Edge/Default/Bookmarks`,
+				},
 			];
 
 			const chromiumResults = await Promise.all(
 				sources.map((s) => store.getChromiumBookmarks(s)),
 			);
 
-
 			// Use a Set to keep track of unique ids
 			const seenIds = new Set<string>();
 
-			for (const bookmark of [
-				...safariBookmarks,
-				...chromiumResults.flat(),
-			]) {
+			for (const bookmark of [...safariBookmarks, ...chromiumResults.flat()]) {
 				if (!seenIds.has(bookmark.id)) {
 					allBookmarks.push(bookmark);
 					seenIds.add(bookmark.id);
@@ -1041,25 +1071,27 @@ export const createUIStore = (root: IRootStore) => {
 					bookmarkFolder: null | string;
 				}[] = [];
 
-				for (const root of Object.values<{ children?: BookmarkNode[] } | undefined>(
-					OGbookmarks.roots ?? {},
-				)) {
+				for (const root of Object.values<
+					{ children?: BookmarkNode[] } | undefined
+				>(OGbookmarks.roots ?? {})) {
 					if (root?.children) {
 						traverse(bookmarks, root.children, null);
 					}
 				}
 
-				return bookmarks.map((bookmark, idx): Item => ({
-					id: `${bookmark.title}_${source.id}_${idx}`,
-					name: bookmark.title,
-					bookmarkFolder: bookmark.bookmarkFolder,
-					type: ItemType.BOOKMARK,
-					faviconFallback: source.favicon,
-					url: bookmark.url,
-					callback: () => {
-						Linking.openURL(bookmark.url);
-					},
-				}));
+				return bookmarks.map(
+					(bookmark, idx): Item => ({
+						id: `${bookmark.title}_${source.id}_${idx}`,
+						name: bookmark.title,
+						bookmarkFolder: bookmark.bookmarkFolder,
+						type: ItemType.BOOKMARK,
+						faviconFallback: source.favicon,
+						url: bookmark.url,
+						callback: () => {
+							Linking.openURL(bookmark.url);
+						},
+					}),
+				);
 			} catch (e) {
 				console.error(`Could not read ${source.id} bookmarks: ${e}`);
 				return [];
@@ -1296,7 +1328,11 @@ export const createUIStore = (root: IRootStore) => {
 		executeConfirmCallback: async () => {
 			const callback = store.confirmCallback;
 			store.closeConfirm();
-			await callback?.();
+			try {
+				await callback?.();
+			} catch (error) {
+				solNative.showToast(String(error), "error");
+			}
 		},
 		reloadJsonConfig,
 	});

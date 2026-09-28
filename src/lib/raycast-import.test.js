@@ -36,11 +36,18 @@ test("parses recognizable formats deterministically and leaves everything unsele
 	);
 	expect(a.entries.map((x) => x.selected)).toEqual([false, false]);
 	expect(a.entries.map((x) => x.id)).toEqual(b.entries.map((x) => x.id));
+	expect(a.warnings.join(" ")).toContain("keyword expansion");
 });
 
 test("rejects malformed, unknown, oversized and prototype-key JSON", () => {
 	expect(() => parseRaycastImport("{")).toThrow("Malformed");
 	expect(() => parseRaycastImport("{}")).toThrow("Unknown");
+	expect(() => parseRaycastImport('{"snippets":{},"mystery":true}')).toThrow(
+		"Unknown Raycast field",
+	);
+	expect(() => parseRaycastImport('{"snippets":{}}')).toThrow(
+		"Malformed Raycast field",
+	);
 	expect(() => parseRaycastImport('{"snippets":[],"__proto__":{}}')).toThrow(
 		"Unsafe",
 	);
@@ -118,7 +125,56 @@ test("mapped aliases/hotkeys are staged disabled and takeover settings are refus
 	expect(result.state.stagedBindings.every((x) => x.enabled === false)).toBe(
 		true,
 	);
+	expect(result.state.stagedBindings.map((x) => x.kind)).toEqual([
+		"alias",
+		"shortcut",
+	]);
 	expect(result.state.settings).toEqual({ appearance: "dark" });
+});
+
+test("command mappings are explicit and may target only supplied Bettercast IDs", () => {
+	const preview = snapshot({
+		commands: [{ commandId: "raycast.search", alias: "find" }],
+	});
+	const id = preview.entries[0].id;
+	expect(
+		planRaycastImport(preview, empty(), [id]).preview.entries[0].status,
+	).toBe("unsupported");
+	const mapped = planRaycastImport(preview, empty(), [id], {
+		commandIds: { "raycast.search": "search" },
+	});
+	expect(mapped.operations[0].after.commandId).toBe("search");
+});
+
+test("native command and local snippet names are protected from overwrite", () => {
+	const preview = snapshot({
+		snippets: [{ name: "Local", text: "different" }],
+		quicklinks: [{ name: "Settings", link: "https://example.com" }],
+	});
+	const plan = planRaycastImport(
+		preview,
+		empty(),
+		preview.entries.map((x) => x.id),
+		{},
+		false,
+		{
+			commandNames: ["Settings"],
+			snippets: [{ name: "Local", text: "existing" }],
+		},
+	);
+	expect(plan.preview.entries.map((x) => x.status)).toEqual([
+		"conflict",
+		"conflict",
+	]);
+	expect(plan.operations).toHaveLength(0);
+});
+
+test("unsupported quicklink placeholders are reported specifically", () => {
+	const preview = snapshot({
+		quicklinks: [{ name: "Docs", link: "https://example.com/{selection}" }],
+	});
+	const plan = planRaycastImport(preview, empty(), [preview.entries[0].id]);
+	expect(plan.preview.entries[0].reason).toContain("{query}");
 });
 
 test("rollback preserves unrelated concurrent edits and refuses overwritten imported records", () => {

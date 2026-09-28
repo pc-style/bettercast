@@ -205,6 +205,12 @@ export function createCommandsStore(root: IRootStore) {
 							...state.quicklinks.filter((item) => item.id !== link.id),
 							link,
 						],
+						imports: {
+							...state.imports,
+							customItems: state.imports.customItems.filter(
+								(item) => item.id !== link.id,
+							),
+						},
 					}))
 					.catch(fail);
 				return true;

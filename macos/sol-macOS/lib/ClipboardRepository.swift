@@ -167,7 +167,6 @@ final class ClipboardRepository {
       try seal(data).write(to: path, options: .atomic)
       try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
     }
-    var thumbnailBytes = 0
     #if canImport(AppKit)
     if kind == "image", let image = ["public.png", "public.jpeg", "public.tiff"].compactMap({ representations[$0] }).first,
        let source = CGImageSourceCreateWithData(image as CFData, nil),
@@ -176,14 +175,19 @@ final class ClipboardRepository {
       let thumbnailURL = root.appendingPathComponent("payloads/\(hash).thumb")
       try seal(png).write(to: thumbnailURL, options: .atomic)
       try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: thumbnailURL.path)
-      thumbnailBytes = png.count
     }
     #endif
+    let storedBytes = try [path, root.appendingPathComponent("payloads/\(hash).thumb")].reduce(0) { total, url in
+      guard FileManager.default.fileExists(atPath: url.path) else { return total }
+      let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+      guard let size = attributes[.size] as? NSNumber else { throw ClipboardRepositoryError.persistence }
+      return total + size.intValue
+    }
     let id = UUID().uuidString
     let sourceJSON = String(data: try JSONSerialization.data(withJSONObject: source), encoding: .utf8)!
     do {
       try transaction {
-        try execute("INSERT OR IGNORE INTO payloads(hash,bytes) VALUES(?,?)", [hash, data.count + thumbnailBytes])
+        try execute("INSERT OR IGNORE INTO payloads(hash,bytes) VALUES(?,?)", [hash, storedBytes])
         try execute("INSERT INTO clips(id,hash,kind,preview,preview_truncated,copied,source) VALUES(?,?,?,?,?,?,?)", [id, hash, kind, String(text.prefix(1500)), text.count > 1500 ? 1 : 0, now, sourceJSON])
         try execute("INSERT INTO clip_search(id,body) VALUES(?,?)", [id, text])
       }
@@ -250,7 +254,16 @@ final class ClipboardRepository {
       }
       if var queue = try metadata("queue") {
         let removed = Set(ids)
-        if let itemIDs = queue["itemIds"] as? [String] { queue["itemIds"] = itemIDs.filter { !removed.contains($0) } }
+        if let itemIDs = queue["itemIds"] as? [String], !removed.isDisjoint(with: itemIDs) {
+          let order = queue["reversed"] as? Bool == true ? Array(itemIDs.reversed()) : itemIDs
+          let position = min(max((queue["position"] as? NSNumber)?.intValue ?? 0, 0), order.count)
+          let removedBefore = order.prefix(position).filter { removed.contains($0) }.count
+          let remaining = itemIDs.filter { !removed.contains($0) }
+          queue["itemIds"] = remaining
+          queue["position"] = min(position - removedBefore, remaining.count)
+          queue["state"] = ["status": "interrupted", "reason": "A queued item was deleted. Check the next item before resuming."]
+          queue.removeValue(forKey: "lastResult")
+        }
         if let items = queue["items"] as? [[String: Any]] { queue["items"] = items.filter { item in
           guard let id = item["id"] as? String else { return false }
           return !removed.contains(id)
@@ -293,7 +306,9 @@ final class ClipboardRepository {
         if bytes <= cap { break }
       }
     }
-    capShortened = shortenedNow
+    // Preserve the warning while retained history is still shorter because of a
+    // previous cap eviction; a subsequent no-op prune must not erase that fact.
+    capShortened = capShortened || shortenedNow
     try setMetadata("capShortened", ["value": capShortened])
   }
   private func usedBytes() throws -> Double {

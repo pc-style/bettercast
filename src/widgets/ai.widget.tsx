@@ -158,7 +158,7 @@ const AIView: FC<{ ai: AIContract; expanded: boolean }> = observer(({ ai, expand
 		{
 			id: "replace",
 			label: "Replace selection with answer",
-			disabledReason: !ai.insert ? unavailable("Replacing") : lastText ? undefined : "No answer yet",
+			disabledReason: "Selection replacement is not available in this build",
 			run: () => insertLast("replace"),
 		},
 		{

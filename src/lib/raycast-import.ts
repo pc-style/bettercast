@@ -64,6 +64,7 @@ export interface ImportState {
 	stagedBindings: Array<{
 		id: string;
 		commandId: string;
+		kind: "alias" | "shortcut";
 		binding: string;
 		enabled: false;
 	}>;
@@ -75,6 +76,13 @@ export interface ImportMappings {
 	commandIds?: Record<string, string>;
 	/** Snapshot setting name -> Bettercast setting name. Unlisted settings are unsupported. */
 	settings?: Record<string, string>;
+}
+
+export interface ImportConflictInventory {
+	/** Native/product command names, including locally-created quicklinks. */
+	commandNames?: readonly string[];
+	/** Snippets held by the dedicated local snippet store. */
+	snippets?: readonly { name: string; text: string }[];
 }
 
 export interface ImportPlan {
@@ -215,7 +223,34 @@ export function parseRaycastImport(raw: string): ImportPreview {
 		throw new Error(
 			`Unsupported readable snapshot version: ${String(root.version)}`,
 		);
+	const knownFields = new Set([
+		"schema",
+		"version",
+		"snippets",
+		"quicklinks",
+		"links",
+		"commands",
+		"settings",
+		"history",
+	]);
+	const unknownFields = Object.keys(root).filter(
+		(key) => !knownFields.has(key),
+	);
+	if (unknownFields.length)
+		throw new Error(`Unknown Raycast field: ${unknownFields.join(", ")}`);
+	for (const field of [
+		"snippets",
+		"quicklinks",
+		"links",
+		"commands",
+		"history",
+	])
+		if (own(root, field) && !Array.isArray(root[field]))
+			throw new Error(`Malformed Raycast field: ${field} must be an array`);
+	if (own(root, "settings") && !object(root.settings))
+		throw new Error("Malformed Raycast field: settings must be an object");
 	const entries: ImportEntry[] = [];
+	const warnings: string[] = [];
 	const snippets = Array.isArray(root.snippets) ? root.snippets : [];
 	for (const item of snippets) {
 		if (
@@ -245,6 +280,15 @@ export function parseRaycastImport(raw: string): ImportPreview {
 				),
 			);
 	}
+	if (
+		entries.some(
+			(item) =>
+				item.kind === "snippet" && object(item.data) && text(item.data.keyword),
+		)
+	)
+		warnings.push(
+			"Snippet keywords are preserved only as source metadata; keyword expansion is unsupported and will not be enabled.",
+		);
 	const links = Array.isArray(root.quicklinks)
 		? root.quicklinks
 		: Array.isArray(root.links)
@@ -331,7 +375,7 @@ export function parseRaycastImport(raw: string): ImportPreview {
 		format: normalized ? "bettercast-readable-v1" : "raycast-json",
 		version: 1,
 		entries,
-		warnings: [],
+		warnings,
 	};
 }
 
@@ -351,6 +395,7 @@ export function planRaycastImport(
 	selectedIds: readonly string[],
 	mappings: ImportMappings = {},
 	historyOptIn = false,
+	conflicts: ImportConflictInventory = {},
 ): ImportPlan {
 	if (preview.version !== 1) throw new Error("Unsupported preview version");
 	const selected = new Set(selectedIds);
@@ -378,7 +423,14 @@ export function planRaycastImport(
 			collection = "snippets";
 			key = source.id;
 			after = { id: key, name: data.name, text: data.text };
-			const sameName = state.snippets.find(
+			const allSnippets = [
+				...state.snippets,
+				...(conflicts.snippets ?? []).map((item) => ({
+					id: "native",
+					...item,
+				})),
+			];
+			const sameName = allSnippets.find(
 				(item) =>
 					item.name.toLocaleLowerCase() ===
 					String(data.name).toLocaleLowerCase(),
@@ -393,11 +445,16 @@ export function planRaycastImport(
 					reason: "A snippet with this name has different text",
 				};
 		} else if (source.kind === "quicklink") {
-			if (dangerousUrl(String(data.link)))
+			if (
+				dangerousUrl(String(data.link)) ||
+				/\{(?!query\})/.test(String(data.link))
+			)
 				return {
 					...current,
 					status: "unsupported",
-					reason: "Only http, https, and mailto quicklinks are allowed",
+					reason: /\{(?!query\})/.test(String(data.link))
+						? "Only the {query} quicklink placeholder is supported"
+						: "Only http, https, and mailto quicklinks are allowed",
 				};
 			collection = "customItems";
 			key = source.id;
@@ -407,6 +464,10 @@ export function planRaycastImport(
 					item.name.toLocaleLowerCase() ===
 					String(data.name).toLocaleLowerCase(),
 			);
+			const nativeNameConflict = (conflicts.commandNames ?? []).some(
+				(name) =>
+					name.toLocaleLowerCase() === String(data.name).toLocaleLowerCase(),
+			);
 			const byId = state.customItems.find((item) => item.id === key);
 			hadBefore = byId !== undefined;
 			before = (byId ?? null) as JsonValue | null;
@@ -415,6 +476,13 @@ export function planRaycastImport(
 					...current,
 					status: "conflict",
 					reason: "An item with this name has a different URL",
+				};
+			else if (nativeNameConflict)
+				current = {
+					...current,
+					status: "conflict",
+					reason:
+						"A native Bettercast command or quicklink already uses this name",
 				};
 		} else if (source.kind === "alias" || source.kind === "shortcut") {
 			const mapped = mappings.commandIds?.[String(data.commandId)];
@@ -429,6 +497,7 @@ export function planRaycastImport(
 			after = {
 				id: key,
 				commandId: mapped,
+				kind: source.kind,
 				binding: String(source.kind === "alias" ? data.alias : data.binding),
 				enabled: false,
 			};

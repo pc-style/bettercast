@@ -99,6 +99,13 @@ func syntheticImage(_ type: NSBitmapImageRep.FileType) throws -> Data {
     do { _ = try capped.read(id: evicted); throw TestFailure.failed("cap did not evict oldest unprotected item") }
     catch ClipboardRepositoryError.missing { }
 
+    try capped.setMetadata("queue", ["itemIds": ["before", retained, "after"], "items": [["id": "before"], ["id": retained, "preview": "must be removed"], ["id": "after"]], "position": 2, "reversed": true])
+    try capped.delete(ids: [retained])
+    let savedQueue = try capped.metadata("queue")!
+    try expect((savedQueue["itemIds"] as? [String]) == ["before", "after"], "deleted queue item ID retained")
+    try expect((savedQueue["position"] as? NSNumber)?.intValue == 1, "deletion skipped next reversed queue item")
+    try expect((savedQueue["state"] as? [String: Any])?["status"] as? String == "interrupted", "queue deletion did not interrupt delivery")
+
     let clear = ClipboardRepository(directory: root, key: key); try clear.open(); try clear.clear()
     let payloads = root.appendingPathComponent("payloads")
     try expect((try fm.contentsOfDirectory(atPath: payloads.path)).isEmpty, "clear left orphan payloads")

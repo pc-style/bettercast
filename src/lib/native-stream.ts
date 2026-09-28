@@ -24,17 +24,26 @@ export function nativeStream(
 		resolveHeaders = resolve;
 		rejectHeaders = reject;
 	});
+	let cleaned = false;
+	const cleanup = () => {
+		if (cleaned) return;
+		cleaned = true;
+		subscription.remove();
+		signal.removeEventListener("abort", abort);
+	};
 	// Processes have no HTTP header event.
 	if (request.op !== "http") resolveHeaders({ status: 200, headers: {} });
 	const abort = () => {
+		if (done) return;
 		error = new Error("Cancelled");
 		done = true;
 		void solNative.workspaceRequest({ op: "cancel", id });
 		rejectHeaders(error);
 		wake();
+		cleanup();
 	};
 	const subscription = solNative.addListener("workspaceChunk", (event: any) => {
-		if (event.id !== id) return;
+		if (event.id !== id || done) return;
 		if (event.headers) {
 			resolveHeaders(event);
 			return;
@@ -57,15 +66,17 @@ export function nativeStream(
 				done = true;
 				wake();
 				resolveHeaders({ status: 200, headers: {} });
+				cleanup();
 			},
 			(failure) => {
 				error = failure;
 				done = true;
 				rejectHeaders(failure);
 				wake();
+				cleanup();
 			},
 		);
-	const iterator = (async function* () {
+	const generator = (async function* () {
 		try {
 			while (!done || chunks.length) {
 				if (error) throw error;
@@ -80,11 +91,24 @@ export function nativeStream(
 			}
 			if (error) throw error;
 		} finally {
-			subscription.remove();
-			signal.removeEventListener("abort", abort);
 			if (!done) abort();
+			cleanup();
 		}
 	})();
+	const iterator: AsyncGenerator<Uint8Array, void, unknown> = {
+		next: (value?: unknown) => generator.next(value),
+		return: async () => {
+			if (!done) abort();
+			return generator.return(undefined);
+		},
+		throw: (failure?: unknown) => generator.throw(failure),
+		[Symbol.asyncIterator]() {
+			return this;
+		},
+		[Symbol.asyncDispose]: async () => {
+			await iterator.return(undefined);
+		},
+	};
 	return { headers, iterator };
 }
 export function nativeFetch(account?: string): typeof fetch {
@@ -138,31 +162,38 @@ export function claudeTransport(): AITransport {
 			const decoder = new UTF8StreamDecoder();
 			let buffer = "",
 				finished = false;
+			const parse = (line: string) => {
+				if (!line.trim()) return null;
+				const packet = JSON.parse(line);
+				if (
+					packet.type === "stream_event" &&
+					packet.event?.type === "content_block_delta" &&
+					packet.event.delta?.type === "text_delta"
+				)
+					return {
+						type: "text",
+						text: packet.event.delta.text,
+					} as AIStreamEvent;
+				if (packet.type === "result") {
+					if (packet.is_error) throw new Error("Claude CLI returned an error");
+					finished = true;
+					return { type: "done" } as AIStreamEvent;
+				}
+				return null;
+			};
 			for await (const chunk of stream.iterator) {
 				buffer += decoder.decode(chunk);
 				let newline: number;
 				while ((newline = buffer.indexOf("\n")) >= 0) {
 					const line = buffer.slice(0, newline);
 					buffer = buffer.slice(newline + 1);
-					if (!line.trim()) continue;
-					const packet = JSON.parse(line);
-					if (
-						packet.type === "stream_event" &&
-						packet.event?.type === "content_block_delta" &&
-						packet.event.delta?.type === "text_delta"
-					)
-						yield {
-							type: "text",
-							text: packet.event.delta.text,
-						} as AIStreamEvent;
-					if (packet.type === "result") {
-						if (packet.is_error)
-							throw new Error("Claude CLI returned an error");
-						finished = true;
-						yield { type: "done" } as AIStreamEvent;
-					}
+					const event = parse(line);
+					if (event) yield event;
 				}
 			}
+			buffer += decoder.finish();
+			const trailing = parse(buffer);
+			if (trailing) yield trailing;
 			if (!finished)
 				throw new Error(
 					"Claude streaming result incomplete. Verify installed CLI supports stream-json and partial messages.",

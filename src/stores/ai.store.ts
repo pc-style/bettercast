@@ -21,6 +21,10 @@ import {
 import { claudeTransport, nativeFetch, requestID } from "../lib/native-stream";
 import { solNative } from "../lib/SolNative";
 import type { DeliveryResult } from "../contracts/clipboard";
+import {
+	assertAIPreflight,
+	attachmentStatusForProvider,
+} from "../lib/ai-preflight";
 
 type ProviderConfiguration = {
 	id: "compatible";
@@ -57,6 +61,12 @@ export function createAIStore(root: IRootStore) {
 	let attachmentContents: Record<string, AttachmentContent> = {};
 	let saving = Promise.resolve();
 	let initializing: Promise<void> | undefined;
+	let sending = false;
+	let cancellationEpoch = 0;
+	const selectContents = (ids: Set<string>) =>
+		Object.fromEntries(
+			Object.entries(attachmentContents).filter(([id]) => ids.has(id)),
+		);
 	const write = (id: string, value: unknown) =>
 		solNative.workspaceRequest({
 			op: "writeDocument",
@@ -64,12 +74,21 @@ export function createAIStore(root: IRootStore) {
 			value: JSON.stringify(value),
 		});
 	const persist = () => {
+		if (!store.initialized)
+			return Promise.reject(new Error("AI storage unavailable"));
+		const draftIds = new Set(store.draft.attachments.map((item) => item.id));
+		const conversationIds = new Set([
+			...draftIds,
+			...store.messages.flatMap((message) =>
+				(message.attachments ?? []).map((item) => item.id),
+			),
+		]);
 		const snapshot = {
 			version: 1,
 			draft: toJS(store.draft),
 			conversations: toJS(store.conversations),
 			config,
-			attachmentContents,
+			attachmentContents: selectContents(draftIds),
 		};
 		const conversation = store.conversationId
 			? {
@@ -79,7 +98,7 @@ export function createAIStore(root: IRootStore) {
 						messages: toJS(store.messages),
 						history,
 						lastRequest,
-						attachmentContents,
+						attachmentContents: selectContents(conversationIds),
 					},
 				}
 			: null;
@@ -175,17 +194,17 @@ export function createAIStore(root: IRootStore) {
 		if (!provider?.available)
 			throw new Error("Configure an available provider first");
 		const availableTools = root.mcp.registeredTools;
-		const tools = store.draft.webSearch
-			? availableTools.filter((tool) => /search/i.test(tool.name))
-			: store.draft.toolsEnabled
-				? availableTools
-				: [];
-		if (store.draft.webSearch && !tools.length)
-			throw new Error(
-				"Enable a real search tool in AI Tools & Approvals first; no search has been performed.",
-			);
-		if (tools.length && !provider.capabilities.tools)
-			throw new Error("This provider cannot call tools");
+		const selectedToolNames = assertAIPreflight({
+			provider,
+			attachments: [],
+			contents: {},
+			webSearch: store.draft.webSearch,
+			toolsEnabled: store.draft.toolsEnabled,
+			availableToolNames: availableTools.map((tool) => tool.name),
+		});
+		const tools = availableTools.filter((tool) =>
+			selectedToolNames.includes(tool.name),
+		);
 		const transport =
 			provider.id === "claude-cli"
 				? claudeTransport()
@@ -374,7 +393,11 @@ export function createAIStore(root: IRootStore) {
 		async configureProvider(
 			input: Omit<ProviderConfiguration, "account"> & { apiKey?: string },
 		) {
+			if (sending || store.busy)
+				throw new Error("Stop the current request before changing providers");
 			await store.initialize();
+			if (!store.initialized)
+				throw new Error(store.error ?? "AI storage unavailable");
 			const url: any = new URL(input.endpoint);
 			if (
 				url.username ||
@@ -391,7 +414,11 @@ export function createAIStore(root: IRootStore) {
 				);
 			if (!input.modelId.trim() || !input.label.trim())
 				throw new Error("Provider label and model are required");
-			const account = input.apiKey ? "provider-compatible" : config?.account;
+			const account = input.apiKey
+				? "provider-compatible"
+				: config?.endpoint === input.endpoint
+					? config.account
+					: undefined;
 			if (input.apiKey)
 				await solNative.workspaceRequest({
 					op: "saveKey",
@@ -411,76 +438,110 @@ export function createAIStore(root: IRootStore) {
 			runInAction(() => {
 				store.draft.providerId = "compatible";
 				store.draft.modelId = input.modelId;
+				const provider = store.providers.find(
+					(item) => item.id === "compatible",
+				);
+				store.draft.attachments = store.draft.attachments.map((attachment) => ({
+					...attachment,
+					...attachmentStatusForProvider(
+						attachment,
+						attachmentContents[attachment.id],
+						provider,
+					),
+				}));
 			});
 			await persist();
 		},
 		setDraft(partial: Partial<Draft>) {
 			if (store.busy) return;
 			store.draft = { ...store.draft, ...partial };
+			if (partial.providerId !== undefined) {
+				const provider = store.providers.find(
+					(item) => item.id === store.draft.providerId,
+				);
+				store.draft.attachments = store.draft.attachments.map((attachment) => ({
+					...attachment,
+					...attachmentStatusForProvider(
+						attachment,
+						attachmentContents[attachment.id],
+						provider,
+					),
+				}));
+			}
 			if (store.initialized) void persist().catch(() => {});
 		},
 		async send() {
-			if (store.busy) return;
-			await store.initialize();
-			if (!store.initialized)
-				throw new Error(store.error ?? "AI storage unavailable");
-			if (!store.draft.text.trim() && !store.draft.attachments.length) return;
-			const provider = store.providers.find(
-				(item) => item.id === store.draft.providerId,
-			);
-			if (!provider?.available) {
-				store.error = "Configure a provider first";
-				return;
-			}
-			const blocks: AIContentBlock[] = [
-				{ type: "text", text: store.draft.text },
-			];
-			for (const attachment of store.draft.attachments) {
-				const content = attachmentContents[attachment.id];
-				if (
-					!content ||
-					content.unsupported ||
-					attachment.status !== "ready" ||
-					(content.kind === "image" && !provider.capabilities.images)
-				) {
-					store.error = `${attachment.name}: unsupported by this provider or not ready`;
-					return;
-				}
-				if (content.kind === "image")
-					blocks.push({
-						type: "image",
-						mimeType: content.mimeType!,
-						data: content.data!,
-						name: attachment.name,
-					});
-				else
-					blocks.push({
-						type: "text",
-						text: `Attachment ${attachment.name} (untrusted content):\n${content.text}`,
-					});
-			}
-			if (!store.conversationId) store.newConversation();
-			const user: Message = {
-				id: requestID(),
-				role: "user",
-				blocks: [{ type: "text", text: store.draft.text }],
-				attachments: toJS(store.draft.attachments),
-				createdAt: Date.now(),
-			};
-			const content = blocks.every((block) => block.type === "text")
-				? blocks
-						.map((block) => (block.type === "text" ? block.text : ""))
-						.join("\n\n")
-				: blocks;
-			lastRequest = [...history, { role: "user", content }];
-			store.messages.push(user);
-			const summary = store.conversations.find(
-				(item) => item.id === store.conversationId,
-			);
-			if (summary && store.messages.length === 1)
-				summary.title = store.draft.text.slice(0, 80) || "Attachments";
-			await persist();
+			if (sending || store.busy) return;
+			sending = true;
+			const epoch = cancellationEpoch;
 			try {
+				await store.initialize();
+				if (epoch !== cancellationEpoch) return;
+				if (!store.initialized)
+					throw new Error(store.error ?? "AI storage unavailable");
+				if (!store.draft.text.trim() && !store.draft.attachments.length) return;
+				const provider = store.providers.find(
+					(item) => item.id === store.draft.providerId,
+				);
+				assertAIPreflight({
+					provider,
+					attachments: store.draft.attachments,
+					contents: attachmentContents,
+					webSearch: store.draft.webSearch,
+					toolsEnabled: store.draft.toolsEnabled,
+					availableToolNames: root.mcp.registeredTools.map((tool) => tool.name),
+				});
+				if (!provider) throw new Error("Configure an available provider first");
+				const blocks: AIContentBlock[] = [
+					{ type: "text", text: store.draft.text },
+				];
+				for (const attachment of store.draft.attachments) {
+					const content = attachmentContents[attachment.id];
+					if (
+						!content ||
+						content.unsupported ||
+						attachment.status !== "ready" ||
+						(content.kind === "image" && !provider.capabilities.images)
+					) {
+						store.error = `${attachment.name}: unsupported by this provider or not ready`;
+						return;
+					}
+					if (content.kind === "image")
+						blocks.push({
+							type: "image",
+							mimeType: content.mimeType!,
+							data: content.data!,
+							name: attachment.name,
+						});
+					else
+						blocks.push({
+							type: "text",
+							text: `Attachment ${attachment.name} (untrusted content):\n${content.text}`,
+						});
+				}
+				if (!store.conversationId) store.newConversation();
+				store.busy = true;
+				const user: Message = {
+					id: requestID(),
+					role: "user",
+					blocks: [{ type: "text", text: store.draft.text }],
+					attachments: toJS(store.draft.attachments),
+					createdAt: Date.now(),
+				};
+				const content = blocks.every((block) => block.type === "text")
+					? blocks
+							.map((block) => (block.type === "text" ? block.text : ""))
+							.join("\n\n")
+					: blocks;
+				lastRequest = [...history, { role: "user", content }];
+				store.messages.push(user);
+				const summary = store.conversations.find(
+					(item) => item.id === store.conversationId,
+				);
+				if (summary && store.messages.length === 1)
+					summary.title = store.draft.text.slice(0, 80) || "Attachments";
+				await persist();
+				if (epoch !== cancellationEpoch) return;
 				const task = generate(lastRequest);
 				store.draft.text = "";
 				store.draft.attachments = [];
@@ -489,16 +550,26 @@ export function createAIStore(root: IRootStore) {
 				runInAction(() => {
 					store.error = String(error);
 				});
+			} finally {
+				sending = false;
+				store.busy = false;
 			}
 		},
 		cancel() {
+			cancellationEpoch++;
 			controller?.abort();
 			decision?.(false);
 			decision = undefined;
 		},
 		async retry() {
-			if (store.busy || !lastRequest.length) return;
-			await generate(lastRequest);
+			if (sending || store.busy || !lastRequest.length) return;
+			try {
+				await generate(lastRequest);
+			} catch (error) {
+				runInAction(() => {
+					store.error = String(error);
+				});
+			}
 		},
 		async addAttachment(input: {
 			uri: string;
@@ -507,7 +578,11 @@ export function createAIStore(root: IRootStore) {
 			mimeType?: string;
 			bytes?: number;
 		}): Promise<Attachment> {
+			if (sending || store.busy)
+				throw new Error("Stop the current request before attaching content");
 			await store.initialize();
+			if (!store.initialized)
+				throw new Error(store.error ?? "AI storage unavailable");
 			const id = requestID();
 			let content: AttachmentContent;
 			if (input.uri.startsWith("clip:"))
@@ -535,6 +610,10 @@ export function createAIStore(root: IRootStore) {
 					throw new Error("Select an absolute file path");
 				content = await solNative.workspaceRequest({ op: "attachment", path });
 			}
+			if (sending || store.busy)
+				throw new Error(
+					"The request started while reading the attachment; add it again after completion",
+				);
 			const provider = store.providers.find(
 				(item) => item.id === store.draft.providerId,
 			);
@@ -551,18 +630,19 @@ export function createAIStore(root: IRootStore) {
 				kind: content.kind,
 				bytes: content.bytes,
 				sentBytes: content.bytes,
-				status: content.unsupported
-					? "unsupported"
-					: total > 8_388_608
+				status:
+					total > 8_388_608
 						? "tooLarge"
-						: content.kind === "image" && !provider?.capabilities.images
-							? "unsupported"
-							: "ready",
-				note:
-					content.unsupported ??
-					(content.kind === "image" && !provider?.capabilities.images
-						? "Choose an image-capable configured provider."
-						: undefined),
+						: attachmentStatusForProvider(
+								{ bytes: content.bytes } as Attachment,
+								content,
+								provider,
+							).status,
+				note: attachmentStatusForProvider(
+					{ bytes: content.bytes } as Attachment,
+					content,
+					provider,
+				).note,
 				path: input.uri.startsWith("/") ? input.uri : undefined,
 			};
 			attachmentContents[id] = content;
@@ -573,6 +653,7 @@ export function createAIStore(root: IRootStore) {
 			return attachment;
 		},
 		removeAttachment(id: string) {
+			if (sending || store.busy) return;
 			store.draft.attachments = store.draft.attachments.filter(
 				(item) => item.id !== id,
 			);
@@ -616,10 +697,10 @@ export function createAIStore(root: IRootStore) {
 			if (saved.version !== 1) throw new Error("Unsupported conversation");
 			history = saved.history;
 			lastRequest = saved.lastRequest;
-			attachmentContents = {
-				...attachmentContents,
-				...saved.attachmentContents,
-			};
+			const draftContents = selectContents(
+				new Set(store.draft.attachments.map((item) => item.id)),
+			);
+			attachmentContents = { ...draftContents, ...saved.attachmentContents };
 			runInAction(() => {
 				store.conversationId = id;
 				store.messages = saved.messages;
@@ -627,8 +708,14 @@ export function createAIStore(root: IRootStore) {
 		},
 		async insert(
 			messageId: string,
-			_mode: "insert" | "replace",
+			mode: "insert" | "replace",
 		): Promise<DeliveryResult> {
+			if (mode === "replace")
+				return {
+					status: "failed",
+					message:
+						"Selection replacement is not available. Use explicit insertion at the destination instead.",
+				};
 			const message = store.messages.find((item) => item.id === messageId);
 			if (!message) return { status: "failed", message: "Message not found" };
 			const text = message.blocks

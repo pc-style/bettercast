@@ -24,6 +24,8 @@ export type ImportEntry = {
 	conflictWith?: string;
 	/** Short readable detail of what would be created, e.g. keyword or URL template. */
 	detail?: string;
+	/** Present for alias/hotkey rows so UI can require an explicit destination mapping. */
+	sourceCommandId?: string;
 	selected: boolean;
 };
 
@@ -40,6 +42,10 @@ export type ImportReport = {
 	imported: number;
 	skipped: number;
 	failed: { id: string; name: string; message: string }[];
+	/** Alias and shortcut requests stored disabled for later review. */
+	staged: number;
+	/** Private history records deliberately not read or imported. */
+	unsupportedHistory: number;
 	/** true while a rollback of this apply is possible. */
 	canRollback: boolean;
 };
@@ -49,10 +55,15 @@ export interface MigrationContract {
 	previewError: string | null;
 	applying: boolean;
 	report: ImportReport | null;
+	readonly rollbackAvailable: boolean;
+	/** Bettercast command IDs that a source command may explicitly target. */
+	readonly commandTargets: { id: string; title: string }[];
+	commandMappings: Record<string, string>;
 
 	/** Parse user-supplied export text into `current`. Read-only; writes nothing. */
 	preview(raw: string): void;
 	select(id: string, selected: boolean): void;
+	mapCommand(sourceCommandId: string, bettercastCommandId: string | null): void;
 	/** Commits selected "import" entries after explicit user consent. */
 	apply(): Promise<ImportReport>;
 	rollback(): Promise<void>;

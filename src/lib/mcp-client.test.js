@@ -109,4 +109,74 @@ describe("MCP client", () => {
 		controller.abort();
 		await expect(pending).rejects.toMatchObject({ code: "CANCELLED" });
 	});
+
+	test("already cancelled calls never reach transport", async () => {
+		let requests = 0;
+		const client = new MCPClient({
+			transport: {
+				async send() {
+					requests++;
+					throw new Error("should not run");
+				},
+			},
+		});
+		const controller = new AbortController();
+		controller.abort();
+		await expect(client.initialize(controller.signal)).rejects.toMatchObject({
+			code: "CANCELLED",
+		});
+		expect(requests).toBe(0);
+	});
+
+	test("discovery rejects a repeating cursor rather than looping", async () => {
+		let pages = 0;
+		const client = new MCPClient({
+			transport: {
+				async send(message) {
+					const result =
+						message.method === "initialize"
+							? {
+									protocolVersion: "2025-06-18",
+									capabilities: { tools: {} },
+									serverInfo: { name: "fixture" },
+								}
+							: { tools: [], nextCursor: "again" };
+					if (message.method === "tools/list") pages++;
+					return { message: { jsonrpc: "2.0", id: message.id, result } };
+				},
+			},
+		});
+		await client.initialize();
+		await expect(client.listTools()).rejects.toThrow("bounded pagination");
+		expect(pages).toBe(2);
+	});
+
+	test("matching SSE response cancels its open stream", async () => {
+		let cancelled = false;
+		const transport = new MCPHTTPTransport({
+			endpoint: "https://example.test/mcp",
+			approvedEndpoints: ["https://example.test/mcp"],
+			fetch: async () =>
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								new TextEncoder().encode(
+									'data: {"jsonrpc":"2.0","id":7,"result":{}}\n\n',
+								),
+							);
+						},
+						cancel() {
+							cancelled = true;
+						},
+					}),
+					{ headers: { "content-type": "text/event-stream" } },
+				),
+		});
+		await transport.send(
+			{ jsonrpc: "2.0", id: 7, method: "tools/list" },
+			{ signal: new AbortController().signal },
+		);
+		expect(cancelled).toBe(true);
+	});
 });
