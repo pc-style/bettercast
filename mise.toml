@@ -1,6 +1,0 @@
-[tools]
-bun = "latest"
-ruby = "3.3"
-
-[hooks]
-postinstall = "bun install && gem install bundler && bundle install && bun pods"

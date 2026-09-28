@@ -1,7 +1,0 @@
-default_platform(:mac)
-
-platform :mac do
-  lane :release do
-    UI.user_error!("Bettercast release is disabled: configure fork signing, notarization, repository, appcast, and installation paths before adding a new release lane. For a local debug run with full Xcode, use `bun macos` instead.")
-  end
-end
