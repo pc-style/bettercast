@@ -1,0 +1,14 @@
+name: Blacksmith macOS trial
+
+# Manual, isolated comparison. The push build remains on GitHub macos-15.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trial:
+    uses: ./.github/workflows/macos-build.yml
+    with:
+      runner: blacksmith-6vcpu-macos-15
