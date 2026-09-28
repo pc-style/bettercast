@@ -4,7 +4,7 @@ name: macOS test build
 # No signing secrets, notarization, release, appcast, or upload outside Actions artifacts.
 on:
   push:
-    branches: [bettercast-foundation]
+    branches: [bettercast-foundation, bettercast-product]
   workflow_dispatch:
 
 permissions:
@@ -53,7 +53,7 @@ jobs:
       - name: Source checks
         run: |
           bun run typecheck
-          bun test ./src/lib/foundation.test.js ./src/stores/snippet-persistence.test.js
+          bun test ./src
           swiftc macos/sol-macOS/lib/AIProcess.swift scripts/test-ai-process.swift -o "$RUNNER_TEMP/test-ai-process"
           "$RUNNER_TEMP/test-ai-process"
 
