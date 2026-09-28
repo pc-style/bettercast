@@ -4,7 +4,7 @@ name: macOS test build
 # No signing secrets, notarization, release, appcast, or upload outside Actions artifacts.
 on:
   push:
-    branches: [bettercast-foundation]
+    branches: [bettercast-foundation, bettercast-product]
   workflow_dispatch:
 
 permissions:
@@ -53,7 +53,8 @@ jobs:
       - name: Source checks
         run: |
           bun run typecheck
-          bun test ./src/lib/foundation.test.js ./src/stores/snippet-persistence.test.js
+          bun test ./src
+          scripts/ci/check-macho-deps.test.sh
           swiftc macos/sol-macOS/lib/AIProcess.swift scripts/test-ai-process.swift -o "$RUNNER_TEMP/test-ai-process"
           "$RUNNER_TEMP/test-ai-process"
 
@@ -85,8 +86,22 @@ jobs:
             CODE_SIGN_IDENTITY=- \
             PROVISIONING_PROFILE_SPECIFIER= \
             ENABLE_HARDENED_RUNTIME=NO \
-            build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*(sign|bundle)|\*\* BUILD|^Ld |CodeSign |PhaseScript" || true
-          grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+            build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | awk '/error:|warning: .*(sign|bundle)|\*\* BUILD|^Ld |CodeSign |PhaseScript/ { print; fflush(); }'
+
+      - name: Product native storage tests
+        run: |
+          set -euo pipefail
+          swiftc macos/sol-macOS/lib/AIWorkspace.swift scripts/test-ai-workspace.swift \
+            -o "$RUNNER_TEMP/test-ai-workspace"
+          "$RUNNER_TEMP/test-ai-workspace"
+          cipher="$DERIVED_DATA/SourcePackages/checkouts/SQLCipher.swift/Sources/SQLCipher/SQLCipher.xcframework/macos-arm64_x86_64"
+          test -d "$cipher/SQLCipher.framework"
+          swiftc -D CLIPBOARD_TEST -F "$cipher" -framework SQLCipher \
+            -Xcc -DSQLITE_HAS_CODEC=1 -Xlinker -rpath -Xlinker "$cipher" \
+            macos/sol-macOS/lib/AIWorkspace.swift \
+            macos/sol-macOS/lib/ClipboardRepository.swift scripts/test-clipboard.swift \
+            -o "$RUNNER_TEMP/test-clipboard"
+          "$RUNNER_TEMP/test-clipboard"
 
       - name: Package and inspect
         run: |
@@ -104,12 +119,26 @@ jobs:
           echo "== resources"; ls "$app/Contents/Resources" | head -50
           echo "== frameworks"; ls "$app/Contents/Frameworks" || true
           echo "== linked libraries"; otool -L "$exe"
-          if otool -L "$exe" | grep -E "DerivedData|/Users/runner"; then echo "absolute build path linked"; exit 1; fi
+          otool -L "$exe" | scripts/ci/check-macho-deps.sh
+          for fw in "$app"/Contents/Frameworks/*.framework; do
+            bin="$fw/$(basename "$fw" .framework)"
+            echo "== deps: $bin"; otool -L "$bin" | scripts/ci/check-macho-deps.sh
+          done
+          # The upstream helper copy phase changes its bundle identifier after
+          # extracting a pre-signed helper. Seal that copy, then the outer app.
+          codesign --force --sign - --timestamp=none --preserve-metadata=entitlements \
+            "$app/Contents/Library/LoginItems/LaunchAtLoginHelper.app"
+          codesign --force --sign - --timestamp=none \
+            --entitlements macos/sol-macOS/sol-macOS.entitlements "$app"
           echo "== signature"; codesign -dv --verbose=2 "$app" 2>&1
           codesign --verify --deep --strict --verbose=2 "$app"
           echo "== entitlements"; codesign -d --entitlements - "$app" 2>&1 || true
           cd "$OUT_DIR"
           ditto -c -k --sequesterRsrc --keepParent Bettercast.app Bettercast-arm64-adhoc.zip
+          ditto -x -k Bettercast-arm64-adhoc.zip "$RUNNER_TEMP/archive-check"
+          codesign --verify --deep --strict --verbose=2 "$RUNNER_TEMP/archive-check/Bettercast.app"
+          test -x "$RUNNER_TEMP/archive-check/Bettercast.app/Contents/MacOS/bettercast"
+          test -L "$RUNNER_TEMP/archive-check/Bettercast.app/Contents/Frameworks/hermes.framework/Versions/Current"
           shasum -a 256 Bettercast-arm64-adhoc.zip | tee Bettercast-arm64-adhoc.zip.sha256
           echo "## Bettercast.app (arm64, ad-hoc)" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
