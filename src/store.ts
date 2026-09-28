@@ -16,6 +16,11 @@ import {
 import { type EmojiStore, createEmojiStore } from "stores/emoji.store";
 import { type ScriptsStore, createScriptsStore } from "stores/scripts.store";
 import { type SnippetsStore, createSnippetsStore } from "stores/snippets.store";
+import {createProductStore,type ProductStore} from './stores/product.store';
+import {createCommandsStore,type CommandsStore} from './stores/commands.store';
+import {createMigrationStore,type MigrationStore} from './stores/migration.store';
+import {createAIStore,type AIStore} from './stores/ai.store';
+import {createMcpStore,type McpStore} from './stores/mcp.store';
 
 export interface IRootStore {
 	ui: UIStore;
@@ -26,12 +31,18 @@ export interface IRootStore {
 	emoji: EmojiStore;
 	scripts: ScriptsStore;
 	snippets: SnippetsStore;
+	product: ProductStore;
+	commands: CommandsStore;
+	migration: MigrationStore;
+	ai: AIStore;
+	mcp: McpStore;
 	cleanUp: () => void;
 }
 
 const createRootStore = (): IRootStore => {
 	const store: any = {};
 
+	store.product = createProductStore();
 	store.ui = createUIStore(store);
 	store.clipboard = createClipboardStore(store);
 	store.keystroke = createKeystrokeStore(store);
@@ -40,11 +51,17 @@ const createRootStore = (): IRootStore => {
 	store.scripts = createScriptsStore(store);
 	store.snippets = createSnippetsStore(store);
 	store.emoji = createEmojiStore(store);
+	store.commands = createCommandsStore(store);
+	store.migration = createMigrationStore(store);
+	store.mcp = createMcpStore(store);
+	store.ai = createAIStore(store);
 	(store as IRootStore).cleanUp = () => {
 		store.ui.cleanUp();
 		store.calendar.cleanUp();
 		store.keystroke.cleanUp();
 		store.clipboard.cleanUp();
+		store.mcp.stopAll();
+		store.commands.cancelRun();
 	};
 
 	return store;

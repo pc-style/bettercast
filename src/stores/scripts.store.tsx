@@ -52,17 +52,7 @@ export const createScriptsStore = (root: IRootStore) => {
 					icon,
 					type: ItemType.USER_SCRIPT,
 					preventClose: true,
-					callback: () => root.ui.confirm(`Run script: ${name}?`, async () => {
-						try {
-							if (file.endsWith(".applescript")) {
-								await solNative.executeAppleScript(content);
-							} else {
-								await solNative.executeBashScript(content);
-							}
-						} catch (e) {
-							solNative.showToast(`Error executing script ${e}`, "error");
-						}
-					}),
+					callback: () => root.commands.runScript(`script-${file}`),
 				});
 			}
 			store.scripts = scriptItems;

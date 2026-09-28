@@ -58,6 +58,8 @@ class SolNative: RCTEventEmitter {
       "onStatusBarItemClick",
       "hotkey",
       "applicationsChanged",
+      "clipboardChanged",
+      "workspaceChunk",
     ]
   }
 
@@ -168,6 +170,119 @@ class SolNative: RCTEventEmitter {
 
   @objc func cancelAI(_ requestId: String) {
     AIProcess.shared.cancel(requestId)
+  }
+
+  @objc func clipboardRequest(_ request: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      ClipboardCapture.shared.start()
+      ClipboardCapture.shared.onChange = { [weak self] in self?.sendEvent(withName: "clipboardChanged", body: [:]) }
+    }
+    let repository = ClipboardRepository.shared
+    repository.work.async {
+      do {
+        try repository.open()
+        switch request["op"] as? String {
+        case "status": resolve(try repository.status())
+        case "configure": resolve(try repository.configure(request["config"] as? [String: Any] ?? [:]))
+        case "query":
+          let query = request["query"] as? [String: Any] ?? [:]
+          resolve(try repository.page(text: query["text"] as? String ?? "", kinds: query["kinds"] as? [String] ?? [], since: query["since"] as? Double, offset: request["offset"] as? Int ?? 0))
+        case "queue":
+          guard let queue = request["queue"] as? [String: Any], let ids = queue["itemIds"] as? [String], ids.count <= 200 else { throw ClipboardRepositoryError.invalidRequest }
+          try repository.setMetadata("queue", queue); resolve([:])
+        case "clear": try repository.clear(); resolve([:])
+        case "attachment":
+          guard let id = request["id"] as? String else { throw ClipboardRepositoryError.invalidRequest }
+          let payload = try repository.read(id: id)
+          let representations = payload["representations"] as? [String: Data] ?? [:]
+          if let type = ["public.png", "public.jpeg"].first(where: { representations[$0] != nil }), let data = representations[type], data.count <= 8_388_608 {
+            resolve(["kind": "image", "mimeType": type == "public.png" ? "image/png" : "image/jpeg", "data": data.base64EncodedString(), "bytes": data.count])
+          } else if let text = payload["text"] as? String, text.utf8.count <= 128_000 { resolve(["kind": "text", "text": text, "bytes": text.utf8.count]) }
+          else { throw ClipboardRepositoryError.invalidRequest }
+        case "action":
+          guard let id = request["id"] as? String, let action = request["action"] as? String else { throw ClipboardRepositoryError.invalidRequest }
+          if action == "delete" { try repository.delete(ids: [id]); resolve(["status": "done"]); return }
+          if action == "pin" || action == "unpin" { try repository.pin(id: id, pinned: action == "pin"); resolve(["status": "done"]); return }
+          let payload = try repository.read(id: id)
+          DispatchQueue.main.async {
+            if action == "reveal", let files = payload["files"] as? [String], !files.isEmpty {
+              NSWorkspace.shared.activateFileViewerSelecting(files.map { URL(fileURLWithPath: $0) }); resolve(["status": "done"])
+            } else if action == "saveImage" {
+              let representations = payload["representations"] as? [String: Data] ?? [:]
+              guard let type = ["public.png", "public.jpeg", "public.tiff"].first(where: { representations[$0] != nil }), let data = representations[type] else { resolve(["status": "failed", "message": "No supported original image representation."]); return }
+              let panel = NSSavePanel(); panel.nameFieldStringValue = "Clipboard.\(type == "public.png" ? "png" : type == "public.jpeg" ? "jpg" : "tiff")"
+              panel.begin { response in
+                guard response == .OK, let url = panel.url else { resolve(["status": "failed", "message": "Save cancelled"]); return }
+                repository.work.async { do { try data.write(to: url, options: .atomic); resolve(["status": "done"]) } catch { reject("CLIPBOARD_SAVE", "Could not save original image", nil) } }
+              }
+            } else if ["paste", "pastePlain", "copy"].contains(action) { ClipboardCapture.shared.deliver(payload: payload, action: action, completion: resolve) }
+            else { resolve(["status": "failed", "message": "Action is not supported for this item."]) }
+          }
+        default: throw ClipboardRepositoryError.invalidRequest
+        }
+      } catch { reject("CLIPBOARD_ERROR", "Clipboard operation failed (\(error)). No delivery is confirmed.", nil) }
+    }
+  }
+
+  @objc func workspaceRequest(_ request: NSDictionary, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let operation = request["op"] as? String ?? ""
+    let id = request["id"] as? String ?? UUID().uuidString
+    if operation == "cancel" { AIWorkspace.cancel(id: id); AIWorkspace.closeStdioSession(id: id); AIProcess.shared.cancel(id); resolve([:]); return }
+    if operation == "pasteText" {
+      guard let text = request["text"] as? String, text.utf8.count <= 1_048_576 else { reject("WORKSPACE_INPUT", "Invalid insertion", nil); return }
+      DispatchQueue.main.async { ClipboardCapture.shared.deliver(payload: ["text": text, "files": [], "representations": ["public.utf8-plain-text": Data(text.utf8)]], action: "paste", completion: resolve) }; return
+    }
+    if operation == "claude" || operation == "script" {
+      let executable = operation == "claude" ? AIProcess.claudeExecutable() : (request["executable"] as? String).map { URL(fileURLWithPath: $0) }
+      guard let executable else { reject("WORKSPACE_UNAVAILABLE", "Required executable is unavailable", nil); return }
+      let arguments = operation == "claude" ? AIProcess.claudeStreamingArguments : request["arguments"] as? [String] ?? []
+      let prompt = operation == "claude" ? request["prompt"] as? String ?? "" : "\n"
+      AIProcess.shared.run(id: id, prompt: prompt, executable: executable, arguments: arguments, timeout: min(120, max(1, request["timeout"] as? Double ?? 120)), currentDirectory: (request["cwd"] as? String).map { URL(fileURLWithPath: $0) } ?? FileManager.default.temporaryDirectory, onChunk: { chunk in
+        DispatchQueue.main.async { self.sendEvent(withName: "workspaceChunk", body: ["id": id, "bytes": Array(chunk)]) }
+      }) { result in
+        DispatchQueue.main.async { switch result { case .success(let output): resolve(["output": output]); case .failure(let error): reject(error.rawValue, "Process failed (\(error.rawValue))", nil) } }
+      }
+      return
+    }
+    Task {
+      do {
+        switch operation {
+        case "saveKey":
+          guard let account = request["account"] as? String, let value = request["value"] as? String else { throw AIWorkspaceError.invalidRequest("Key requires account and value") }
+          try AIWorkspace.storeAPIKey(value, account: account); resolve([:])
+        case "http":
+          guard let endpoint = request["endpoint"] as? String, let url = URL(string: endpoint), let body = request["body"] as? String else { throw AIWorkspaceError.invalidRequest("HTTP requires endpoint and body") }
+          let config = AIHTTPConfiguration(endpoint: url, approvedEndpoints: [url], headers: request["headers"] as? [String: String] ?? [:], keychainAccount: request["account"] as? String, timeout: 120)
+          for try await chunk in AIWorkspace.streamHTTP(id: id, configuration: config, body: Data(body.utf8), onResponse: { status, headers in
+            DispatchQueue.main.async { self.sendEvent(withName: "workspaceChunk", body: ["id": id, "status": status, "headers": headers]) }
+          }) {
+            DispatchQueue.main.async { self.sendEvent(withName: "workspaceChunk", body: ["id": id, "bytes": Array(chunk)]) }
+          }
+          DispatchQueue.main.async { resolve([:]) }
+        case "attachment":
+          guard let path = request["path"] as? String else { throw AIWorkspaceError.invalidRequest("Select a file") }
+          let data = try await AIWorkspace.readAttachment(path: path, selectedPaths: [path], maxBytes: 8_388_608)
+          let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
+          if ["png", "jpg", "jpeg", "gif", "webp"].contains(ext) { resolve(["kind": "image", "mimeType": "image/\(ext == "jpg" ? "jpeg" : ext)", "bytes": data.count, "data": data.base64EncodedString()]) }
+          else if ext == "pdf" { resolve(["kind": "pdf", "bytes": data.count, "unsupported": "PDF extraction is not available; choose a text or image attachment."]) }
+          else if let text = String(data: data, encoding: .utf8), data.count <= 128_000 { resolve(["kind": "text", "bytes": data.count, "text": text]) }
+          else { resolve(["kind": "other", "bytes": data.count, "unsupported": "Not a supported UTF-8 text or image file (text limit 128 KB)."] ) }
+        case "stdioOpen":
+          guard let executable = request["executable"] as? String else { throw AIWorkspaceError.invalidRequest("Missing executable") }
+          try AIWorkspace.openStdioSession(id: id, executable: URL(fileURLWithPath: executable), arguments: request["arguments"] as? [String] ?? []); resolve([:])
+        case "stdioSend":
+          guard let body = request["body"] as? String else { throw AIWorkspaceError.invalidRequest("Missing JSON") }
+          let data = try await AIWorkspace.stdioRequest(sessionID: id, json: Data(body.utf8))
+          resolve(data.isEmpty ? [:] : try JSONSerialization.jsonObject(with: data))
+        case "stdioClose": AIWorkspace.closeStdioSession(id: id); resolve([:])
+        case "readDocument": resolve(try LocalVault.read(id: id))
+        case "writeDocument":
+          guard let value = request["value"] as? String else { throw AIWorkspaceError.invalidRequest("Missing document") }
+          try LocalVault.write(id: id, text: value); resolve([:])
+        default: throw AIWorkspaceError.invalidRequest("Unknown workspace operation")
+        }
+      } catch { reject("WORKSPACE_ERROR", "Workspace operation failed: \(error)", nil) }
+    }
   }
 
   @objc func getMediaInfo(

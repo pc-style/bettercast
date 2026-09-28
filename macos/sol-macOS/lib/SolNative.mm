@@ -42,6 +42,8 @@ RCT_EXTERN_METHOD(executeBashScript : (NSString)source resolver : (
 RCT_EXTERN_METHOD(getAIProviders : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(runAI : (NSDictionary)request resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(cancelAI : (NSString)requestId)
+RCT_EXTERN_METHOD(clipboardRequest : (NSDictionary)request resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(workspaceRequest : (NSDictionary)request resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(getMediaInfo : (RCTPromiseResolveBlock)
                       resolve rejecter : (RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(setGlobalShortcut : (NSString)key)

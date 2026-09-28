@@ -1,333 +1,352 @@
 import { solNative } from "lib/SolNative";
-import MiniSearch from "minisearch";
-import { autorun, makeAutoObservable, runInAction } from "mobx";
-import type { EmitterSubscription } from "react-native";
+import {
+	advanceQueue,
+	emptyQueue,
+	nextQueueItem,
+	restoreQueue,
+	startQueue,
+} from "lib/paste-queue";
+import { makeAutoObservable, reaction, runInAction, toJS } from "mobx";
 import type { IRootStore } from "store";
-import { readPersistedStore, writePersistedStore } from "./persisted-config";
+import type {
+	CaptureState,
+	ClipboardConfig,
+	ClipboardContract,
+	ClipAction,
+	ClipPage,
+	ClipQuery,
+	DeliveryResult,
+	QueueState,
+	RetentionStatus,
+} from "../contracts/clipboard";
 import { Widget } from "./ui.store";
 
-const MAX_ITEMS = 1000;
-const MANAGED_PASTEBOARD_IMAGES_PATH = `/Users/${solNative.userName()}/.config/bettercast/images_pasteboard`;
-
-let onTextCopiedListener: EmitterSubscription | undefined;
-let onFileCopiedListener: EmitterSubscription | undefined;
-
+export type PasteItem = {
+	id: string;
+	text: string;
+	url?: string;
+	bundle?: string;
+	datetime: number;
+};
 export type ClipboardStore = ReturnType<typeof createClipboardStore>;
 
-export type PasteItem = {
-	id: number;
-	text: string;
-	url?: string | null;
-	bundle?: string | null;
-	datetime: number; // Unix timestamp when copied
-};
-
-type RankedPasteItem = PasteItem & {
-	score?: number;
-};
-
-// Coarse relevance tier so the recency boost can only reorder items of
-// comparable match quality, not let a fuzzy hit outrank a direct match.
-const getMatchTier = (item: Pick<PasteItem, "text">, query: string) => {
-	const q = query.trim().toLowerCase();
-	if (!q) {
-		return 0;
-	}
-
-	const text = item.text.toLowerCase();
-	if (text.startsWith(q)) {
-		return 0;
-	}
-
-	if (text.split(/\s+/).some((word) => word.startsWith(q))) {
-		return 1;
-	}
-
-	return text.includes(q) ? 2 : 3;
-};
-
-const minisearch = new MiniSearch({
-	fields: ["text"],
-	storeFields: ["id", "text", "url", "bundle", "datetime"],
-	// tokenize: (text: string, fieldName?: string) =>
-	// 	text.toLowerCase().split(/[\s\.-]+/),
-});
-
-function isManagedPasteboardImagePath(path: string | null | undefined) {
-	return !!path && path.startsWith(`${MANAGED_PASTEBOARD_IMAGES_PATH}/`);
-}
-
-function removeManagedImageFile(item: PasteItem | undefined) {
-	if (!item?.url || !isManagedPasteboardImagePath(item.url)) {
-		return;
-	}
-
-	try {
-		if (solNative.exists(item.url)) {
-			solNative.del(item.url);
-		}
-	} catch (e) {
-		console.error("Could not remove clipboard image:", e);
-	}
-}
-
-function cleanupOrphanedManagedImageFiles(items: PasteItem[]) {
-	try {
-		if (!solNative.exists(MANAGED_PASTEBOARD_IMAGES_PATH)) {
-			return;
-		}
-
-		const referencedPaths = new Set(
-			items
-				.map((item) => item.url)
-				.filter((path): path is string => isManagedPasteboardImagePath(path)),
-		);
-
-		const files = solNative.ls(MANAGED_PASTEBOARD_IMAGES_PATH);
-		for (const fileName of files) {
-			const fullPath = `${MANAGED_PASTEBOARD_IMAGES_PATH}/${fileName}`;
-			if (!referencedPaths.has(fullPath) && solNative.exists(fullPath)) {
-				solNative.del(fullPath);
-			}
-		}
-	} catch (e) {
-		console.error("Could not clean clipboard images:", e);
-	}
-}
-
-export const createClipboardStore = (root: IRootStore) => {
+export function createClipboardStore(root: IRootStore) {
+	let version = 0,
+		queueBusy = false,
+		alive = true;
+	const request = (op: string, data: object = {}) =>
+		solNative.clipboardRequest({ op, ...data });
+	const updateStatus = (status: any) =>
+		runInAction(() => {
+			store.config = {
+				retentionDays: status.config.retentionDays,
+				capBytes: status.config.capBytes,
+				excludedBundleIds: status.config.excludedBundleIds,
+				skipSensitive: status.config.skipSensitive,
+			};
+			store.capture = status.capture;
+			store.retention = status.retention;
+		});
+	const persistQueue = async (queue: QueueState) => {
+		await request("queue", {
+			queue: { ...toJS(queue), itemIds: queue.items.map((item) => item.id) },
+		});
+		runInAction(() => {
+			store.queue = queue;
+		});
+	};
+	const changeQueue = (change: (queue: QueueState) => QueueState) => {
+		if (queueBusy) return;
+		queueBusy = true;
+		void persistQueue(change(toJS(store.queue)))
+			.catch((error) =>
+				runInAction(() => {
+					store.loadError = String(error);
+				}),
+			)
+			.finally(() => {
+				queueBusy = false;
+			});
+	};
 	const store = makeAutoObservable({
-		deleteItem: (index: number) => {
-			if (index >= 0 && index < store.items.length) {
-				removeManagedImageFile(store.items[index]);
-				minisearch.remove(store.items[index]);
-				store.items.splice(index, 1);
-			}
-		},
-		deleteAllItems: () => {
-			store.items.forEach(removeManagedImageFile);
-			store.items = [];
-			minisearch.removeAll();
-		},
-		items: [] as PasteItem[],
-		saveHistory: false,
-		onFileCopied: (obj: {
-			text: string;
-			url: string;
-			bundle: string | null;
-		}) => {
-			const newItem: PasteItem = {
-				id: +Date.now(),
-				datetime: Date.now(),
-				...obj,
-			};
-
-			// If save history move file to more permanent storage
-			if (store.saveHistory) {
-				// TODO!
-			}
-
-			// const index = store.items.findIndex(t => t.text === newItem.text)
-			// // Item already exists, move to top
-			// if (index !== -1) {
-			//   // Re-add to minisearch to update the order
-			//   minisearch.remove(store.items[index])
-			//   minisearch.add(newItem)
-
-			//   store.popToTop(index)
-			//   return
-			// }
-
-			// Item does not already exist, put to queue and add to minisearch
-			store.items.unshift(newItem);
-			minisearch.add(newItem);
-
-			// Remove last item from minisearch
-			store.removeLastItemIfNeeded();
-		},
-		onTextCopied: (obj: { text: string; bundle: string | null }) => {
-			if (!obj.text) {
-				return;
-			}
-
-			const newItem: PasteItem = {
-				id: Date.now().valueOf(),
-				datetime: Date.now(),
-				...obj,
-			};
-
-			const index = store.items.findIndex((t) => t.text === newItem.text);
-			// Item already exists, move to top
-			if (index !== -1) {
-				// Re-add to minisearch to update the order
-				minisearch.remove(store.items[index]);
-				minisearch.add(store.items[index]);
-
-				store.popToTop(index);
-				return;
-			}
-
-			// Item does not already exist, put to queue and add to minisearch
-			store.items.unshift(newItem);
-			minisearch.add(newItem);
-
-			// Remove last item from minisearch
-			store.removeLastItemIfNeeded();
+		query: { text: "", kinds: [] } as ClipQuery,
+		page: { items: [], hasMore: false } as ClipPage,
+		loading: false,
+		loadError: null as string | null,
+		capture: { status: "paused" } as CaptureState,
+		config: {
+			retentionDays: 30,
+			capBytes: 1_073_741_824,
+			excludedBundleIds: [],
+			skipSensitive: true,
+		} as ClipboardConfig,
+		retention: null as RetentionStatus | null,
+		queue: emptyQueue(),
+		get items(): PasteItem[] {
+			return store.page.items.map((item) => ({
+				id: item.id,
+				text: item.preview,
+				url: item.thumbnailPath ?? item.path,
+				bundle: item.sourceApp?.bundleId,
+				datetime: item.copiedAt,
+			}));
 		},
 		get clipboardItems(): PasteItem[] {
-			const items = store.items;
-
-			if (!root.ui.query || root.ui.focusedWidget !== Widget.CLIPBOARD) {
-				return items;
-			}
-
-			// Boost recent items in search results
-			const now = Date.now();
-			const query = root.ui.query;
-			const results = minisearch.search(query, {
-				boostDocument: (_, __, storedFields) => {
-					const dt =
-						typeof storedFields?.datetime === "number"
-							? storedFields.datetime
-							: Number(storedFields?.datetime);
-					if (!dt || Number.isNaN(dt)) return 1;
-					// Boost items copied in the last 24h, scale down for older
-					const hoursAgo = (now - dt) / (1000 * 60 * 60);
-					if (hoursAgo < 1) return 1.2; // very recent
-					if (hoursAgo < 24) return 1.1; // recent
-					return 1;
-				},
-				prefix: true,
-				fuzzy: true,
-			}) as unknown as RankedPasteItem[];
-
-			results.sort((left, right) => {
-				const tierDiff = getMatchTier(left, query) - getMatchTier(right, query);
-				if (tierDiff !== 0) {
-					return tierDiff;
-				}
-
-				return (right.score ?? 0) - (left.score ?? 0);
-			});
-
-			return results;
+			return store.items;
 		},
-		removeLastItemIfNeeded: () => {
-			if (store.items.length > MAX_ITEMS) {
-				const removedItem = store.items[store.items.length - 1];
-				removeManagedImageFile(removedItem);
-
-				try {
-					minisearch.remove(store.items[store.items.length - 1]);
-				} catch (e) {
-					console.error("Could not save clipboard:", e);
-				}
-
-				store.items = store.items.slice(0, MAX_ITEMS);
-			}
+		get saveHistory(): boolean {
+			return store.capture.status === "capturing";
 		},
-		popToTop: (index: number) => {
-			const newItems = [...store.items];
-			const item = newItems.splice(index, 1);
-			newItems.unshift(item[0]);
-			store.items = newItems;
-		},
-		setSaveHistory: (v: boolean) => {
-			store.saveHistory = v;
-			if (!v) {
-				solNative.securelyStore("@bettercast.clipboard_history_v2", "[]");
-			}
-		},
-		cleanUp: () => {
-			onTextCopiedListener?.remove();
-			onTextCopiedListener = undefined;
-			onFileCopiedListener?.remove();
-			onFileCopiedListener = undefined;
-		},
-	});
-
-	onTextCopiedListener = solNative.addListener(
-		"onTextCopied",
-		store.onTextCopied,
-	);
-	onFileCopiedListener = solNative.addListener(
-		"onFileCopied",
-		store.onFileCopied,
-	);
-
-	const hydrate = async () => {
-		const persistedState = await readPersistedStore<{
-			saveHistory?: boolean;
-		}>("clipboard");
-
-		if (persistedState) {
-			store.saveHistory = persistedState.saveHistory ?? false;
-		}
-
-		if (store.saveHistory) {
-			const entry = await solNative.securelyRetrieve(
-				"@bettercast.clipboard_history_v2",
-			);
-
-			if (entry) {
-				let items = JSON.parse(entry);
-				// Ensure all items have datetime
-				items = items.map((item: any) => ({
-					...item,
-					datetime:
-						typeof item.datetime === "number" && !Number.isNaN(item.datetime)
-							? item.datetime
-							: item.id || Date.now(), // fallback: use id or now
-				}));
-				runInAction(() => {
-					store.items = items;
-					minisearch.addAll(store.items);
-				});
-
-				cleanupOrphanedManagedImageFiles(items);
-			} else {
-				cleanupOrphanedManagedImageFiles([]);
-			}
-		} else {
-			cleanupOrphanedManagedImageFiles([]);
-		}
-	};
-
-	const persist = async () => {
-		if (store.saveHistory) {
-			// Ensure all items have datetime before persisting
-			const itemsToPersist = store.items.map((item) => ({
-				...item,
-				datetime:
-					typeof item.datetime === "number" && !Number.isNaN(item.datetime)
-						? item.datetime
-						: item.id || Date.now(),
-			}));
+		async load(query: ClipQuery) {
+			const current = ++version;
+			store.query = query;
+			store.loading = true;
+			store.loadError = null;
 			try {
-				await solNative.securelyStore(
-					"@bettercast.clipboard_history_v2",
-					JSON.stringify(itemsToPersist),
-				);
-			} catch (e) {
-				console.warn("Could not persist data", e);
+				const page = await request("query", { query: toJS(query), offset: 0 });
+				const status = await request("status");
+				if (!alive || current !== version) return;
+				runInAction(() => {
+					store.page = page;
+				});
+				updateStatus(status);
+			} catch (error) {
+				if (current === version)
+					runInAction(() => {
+						store.loadError = String(error);
+					});
+			} finally {
+				if (current === version)
+					runInAction(() => {
+						store.loading = false;
+					});
 			}
-		}
-
-		const storeWithoutItems = { ...store };
-		storeWithoutItems.items = [];
-
-		try {
-			writePersistedStore("clipboard", {
-				saveHistory: storeWithoutItems.saveHistory,
-			});
-		} catch {
-			console.warn("Could not persist clipboard store config");
-		}
-	};
-
-	hydrate().then(() => {
-		autorun(persist);
+		},
+		async loadMore() {
+			if (store.loading || !store.page.hasMore) return;
+			const current = version;
+			store.loading = true;
+			try {
+				const page = await request("query", {
+					query: toJS(store.query),
+					offset: store.page.items.length,
+				});
+				if (current === version)
+					runInAction(() => {
+						store.page = {
+							items: [...store.page.items, ...page.items].filter(
+								(item, index, all) =>
+									all.findIndex((x) => x.id === item.id) === index,
+							),
+							hasMore: page.hasMore,
+						};
+					});
+			} catch (error) {
+				runInAction(() => {
+					store.loadError = String(error);
+				});
+			} finally {
+				runInAction(() => {
+					store.loading = false;
+				});
+			}
+		},
+		async act(id: string, action: ClipAction): Promise<DeliveryResult> {
+			try {
+				const result = await request("action", { id, action });
+				if (["delete", "pin", "unpin"].includes(action))
+					await store.load(store.query);
+				if (
+					action === "delete" &&
+					store.queue.items.some((item) => item.id === id)
+				)
+					changeQueue((queue) => ({
+						...queue,
+						state: {
+							status: "interrupted",
+							reason:
+								"A queued item was deleted. Skip it or create a new queue.",
+						},
+					}));
+				return result;
+			} catch (error) {
+				return { status: "failed", message: String(error) };
+			}
+		},
+		async configure(partial: Partial<ClipboardConfig>) {
+			updateStatus(await request("configure", { config: partial }));
+		},
+		pauseCapture(durationMs?: number) {
+			void request("configure", {
+				config: {
+					paused: true,
+					pauseUntil: durationMs ? Date.now() + durationMs : 0,
+				},
+			})
+				.then(updateStatus)
+				.catch((error) =>
+					runInAction(() => {
+						store.loadError = String(error);
+					}),
+				);
+		},
+		resumeCapture() {
+			root.ui.confirm(
+				"Enable clipboard capture? Payloads and search index are owner-only local files, not app-encrypted. FileVault is recommended. No history is imported.",
+				() => {
+					void request("configure", {
+						config: { enabled: true, paused: false, pauseUntil: 0 },
+					})
+						.then(updateStatus)
+						.catch((error) =>
+							runInAction(() => {
+								store.loadError = String(error);
+							}),
+						);
+				},
+			);
+		},
+		setPrivateMode(on: boolean) {
+			void request("configure", { config: { private: on } })
+				.then(updateStatus)
+				.catch((error) =>
+					runInAction(() => {
+						store.loadError = String(error);
+					}),
+				);
+		},
+		async clearAll() {
+			await request("clear");
+			store.queue = emptyQueue();
+			await store.load(store.query);
+		},
+		setSaveHistory(value: boolean) {
+			value ? store.resumeCapture() : store.pauseCapture();
+		},
+		deleteItem(index: number) {
+			const item = store.items[index];
+			if (item) void store.act(item.id, "delete");
+		},
+		deleteAllItems() {
+			void store.clearAll();
+		},
+		popToTop(_index: number) {
+			/* Copy occurrences are immutable; pasting does not recapture. */
+		},
+		queueStart(ids: string[]) {
+			const items = ids.map(
+				(id) =>
+					store.page.items.find((item) => item.id === id) ??
+					store.queue.items.find((item) => item.id === id),
+			);
+			if (items.some((item) => !item)) {
+				store.loadError =
+					"An item is no longer available. Refresh before queuing.";
+				return;
+			}
+			changeQueue(() =>
+				startQueue(items as NonNullable<(typeof items)[number]>[]),
+			);
+		},
+		async queueNext(): Promise<DeliveryResult> {
+			if (queueBusy || store.queue.state.status !== "running")
+				return {
+					status: "failed",
+					message: "Resume the queue before pasting.",
+				};
+			const item = nextQueueItem(store.queue);
+			if (!item) return { status: "failed", message: "Queue is finished." };
+			queueBusy = true;
+			const before = toJS(store.queue);
+			try {
+				// Durable uncertainty before dispatch: a crash cannot cause silent duplicate paste.
+				await persistQueue({
+					...before,
+					state: {
+						status: "interrupted",
+						reason: "Paste in flight; check destination before retrying.",
+					},
+				});
+				const result = await store.act(item.id, "paste");
+				await persistQueue(advanceQueue(before, result));
+				return result;
+			} catch (error) {
+				return {
+					status: "failed",
+					message: `Queue persistence failed. Check destination before retrying. ${String(error)}`,
+				};
+			} finally {
+				queueBusy = false;
+			}
+		},
+		queueSkip() {
+			changeQueue((queue) => advanceQueue(queue));
+		},
+		queuePause() {
+			changeQueue((queue) => ({ ...queue, state: { status: "paused" } }));
+		},
+		queueResume() {
+			changeQueue((queue) => ({
+				...queue,
+				state: {
+					status: queue.position >= queue.items.length ? "finished" : "running",
+				},
+			}));
+		},
+		queueReverse() {
+			changeQueue((queue) => ({
+				...queue,
+				reversed: !queue.reversed,
+				position: 0,
+				state: { status: "paused" },
+			}));
+		},
+		queueRestart() {
+			changeQueue((queue) => ({
+				...queue,
+				position: 0,
+				state: { status: "paused" },
+			}));
+		},
+		queueCancel() {
+			changeQueue(() => emptyQueue());
+		},
+		cleanUp() {
+			alive = false;
+			version++;
+			listener.remove();
+			dispose();
+		},
 	});
-
+	const checked: ClipboardContract = store;
+	void checked;
+	const listener = solNative.addListener("clipboardChanged", () => {
+		if (root.ui.focusedWidget === Widget.CLIPBOARD)
+			void store.load(store.query);
+	});
+	const dispose = reaction(
+		() => [root.ui.focusedWidget, root.ui.query],
+		() => {
+			if (root.ui.focusedWidget === Widget.CLIPBOARD)
+				void store.load({ ...store.query, text: root.ui.query });
+		},
+	);
+	void request("status")
+		.then((status) => {
+			if (!alive) return;
+			updateStatus(status);
+			runInAction(() => {
+				store.queue = restoreQueue(status.queue);
+			});
+		})
+		.catch((error) =>
+			runInAction(() => {
+				store.loadError = String(error);
+				store.capture = {
+					status: "unavailable",
+					reason: "Native clipboard repository could not open.",
+				};
+			}),
+		);
 	return store;
-};
+}

@@ -156,6 +156,17 @@ export function createBaseItems(store: IRootStore) {
 			preventClose: true,
 			callback: () => store.snippets.open(),
 		},
+		...([
+			["paste_queue", "Paste Queue", Widget.CLIPBOARD_QUEUE],
+			["import_raycast", "Import from Raycast…", Widget.IMPORT_PREVIEW],
+			["quicklinks", "Quicklinks", Widget.QUICKLINKS],
+			["hotkeys_aliases", "Hotkeys & Aliases", Widget.HOTKEYS],
+			["ai_workspace", "AI Workspace", Widget.AI_WORKSPACE],
+			["ai_tools", "AI Tools & Approvals", Widget.MCP_APPROVALS],
+			["clipboard_privacy", "Clipboard Privacy", Widget.PRIVACY],
+		] as const).map(([id,name,widget])=>({id,name,icon:"◇",type:ItemType.CONFIGURATION,preventClose:true,callback:()=>store.ui.focusWidget(widget)})),
+		{id:"paste_next",name:"Paste Next in Queue",icon:"↪",type:ItemType.CONFIGURATION,callback:()=>void store.clipboard.queueNext().then(result=>{if(result.status==='failed'||result.status==='focusChanged')void solNative.showToast(result.message,'error');})},
+		{id:"reload_extensions",name:"Reload TypeScript Extensions",icon:"◇",type:ItemType.CONFIGURATION,callback:()=>store.commands.reloadExtensions()},
 		{
 			id: "resize_fullscreen",
 			IconComponent: () => {

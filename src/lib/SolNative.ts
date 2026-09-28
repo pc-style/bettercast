@@ -81,6 +81,8 @@ class SolNative extends NativeEventEmitter {
 	getAIProviders: () => Promise<Array<{ provider: AIProvider; available: boolean }>>;
 	runAI: (request: AIRequest) => Promise<AIResult>;
 	cancelAI: (requestId: string) => void;
+	clipboardRequest: (request: Record<string, unknown>) => Promise<any>;
+	workspaceRequest: (request: Record<string, unknown>) => Promise<any>;
 	showToast: (
 		text: string,
 		variant: "success" | "error",
@@ -140,6 +142,8 @@ class SolNative extends NativeEventEmitter {
 		this.getAIProviders = module.getAIProviders;
 		this.runAI = module.runAI;
 		this.cancelAI = module.cancelAI;
+		this.clipboardRequest = module.clipboardRequest;
+		this.workspaceRequest = module.workspaceRequest;
 		this.executeAppleScript = module.executeAppleScript;
 		this.openWithFinder = module.openWithFinder;
 		this.getMediaInfo = module.getMediaInfo;

@@ -48,6 +48,7 @@ struct AIProcessTests {
     precondition(AIProcess.parseClaudeResponse("{\"is_error\":false,\"result\":\"ok\"}") == "ok")
     precondition(AIProcess.parseClaudeResponse("{\"is_error\":true,\"result\":\"private\"}") == nil)
     precondition(AIProcess.parseClaudeResponse("not JSON") == nil)
+    precondition(AIProcess.claudeStreamingArguments.suffix(3) == ["stream-json", "--verbose", "--include-partial-messages"])
 
     func check(_ id: String, prompt: String, executable: String, arguments: [String] = [],
                timeout: TimeInterval = 3, cancel: Bool = false,
@@ -74,6 +75,15 @@ struct AIProcessTests {
     // Shell-looking text must be treated as data, not as an executable command.
     let prompt = "hello; touch /tmp/bettercast-ai-should-not-exist\nsecond line"
     check("stdin", prompt: prompt, executable: "/bin/cat", expect: .success(prompt))
+    let streamed = DispatchSemaphore(value: 0)
+    var chunks = Data()
+    bridge.run(id: "stream", prompt: "x", executable: URL(fileURLWithPath: executable), arguments: ["quick"],
+               onChunk: { chunks.append($0) }) { result in
+      guard case .success("quick reply") = result else { preconditionFailure("stream run failed") }
+      streamed.signal()
+    }
+    precondition(streamed.wait(timeout: .now() + 3) == .success)
+    precondition(String(data: chunks, encoding: .utf8) == "quick reply", "chunks were duplicated or lost")
     check("exit", prompt: "x", executable: "/usr/bin/false", expect: .failure(.failed))
     for iteration in 0..<10 {
       check("early-exit-large-\(iteration)", prompt: String(repeating: "a", count: 127_000),

@@ -1,5 +1,5 @@
 import Foundation
-import SQLite3
+import SQLCipher
 
 @objc public class FileSearchIndexObjC: NSObject {
   @objc static let shared = FileSearchIndexObjC()

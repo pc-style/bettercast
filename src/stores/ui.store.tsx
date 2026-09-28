@@ -73,6 +73,14 @@ export enum Widget {
 	FILE_SEARCH = "FILE_SEARCH",
 	AI = "AI",
 	SNIPPETS = "SNIPPETS",
+	CLIPBOARD_QUEUE = "CLIPBOARD_QUEUE",
+	IMPORT_PREVIEW = "IMPORT_PREVIEW",
+	QUICKLINKS = "QUICKLINKS",
+	HOTKEYS = "HOTKEYS",
+	SCRIPT_RUN = "SCRIPT_RUN",
+	AI_WORKSPACE = "AI_WORKSPACE",
+	MCP_APPROVALS = "MCP_APPROVALS",
+	PRIVACY = "PRIVACY",
 }
 
 export enum ItemType {
@@ -498,20 +506,16 @@ export const createUIStore = (root: IRootStore) => {
 				store.isLoading = false;
 			});
 		},
+		get catalog(): Item[] {
+			return [...store.apps,...baseItems,...store.customItems,...(root.scripts?.scripts??[]),...(root.snippets?.items??[]),...(root.commands?.extraItems??[]),...(store.showInAppBrowserBookMarks?store.bookmarks:[])].map(item=>({...item,alias:root.product?.state.aliases[item.id]??item.alias}));
+		},
 		get items(): Item[] {
-			const snippetVersion = JSON.stringify(root.snippets.snippets.map(({ id, name, text }) => [id, name, text]));
+			const allItems = store.catalog;
+			const snippetVersion = JSON.stringify(allItems.map(({ id, name, alias, url }) => [id, name, alias, url]));
 			if (snippetVersion !== indexedSnippets) {
 				minisearch.removeAll();
 				indexedSnippets = snippetVersion;
 			}
-			const allItems = [
-				...store.apps,
-				...baseItems,
-				...store.customItems,
-				...root.scripts.scripts,
-				...root.snippets.items,
-				...(store.showInAppBrowserBookMarks ? store.bookmarks : []),
-			];
 
 			// If the query is empty, return all items
 			if (!store.query) {
@@ -1139,21 +1143,14 @@ export const createUIStore = (root: IRootStore) => {
 		},
 
 		onHotKey: async ({ id }: { id: string }) => {
-			const item = [
-				...store.apps,
-				...baseItems,
-				...store.customItems,
-				...root.scripts.scripts,
-				...root.snippets.items,
-				...(store.showInAppBrowserBookMarks ? store.bookmarks : []),
-			].find((i) => i.id === id);
+			const item = store.catalog.find((i) => i.id === id);
 
 			if (item == null) {
 				return;
 			}
 
 			// TODO logic repeated from keystroke.store.ts. At some point de-duplicate
-			if (item.type === ItemType.CUSTOM) {
+			if (item.type === ItemType.CUSTOM && !item.callback) {
 				if (!item.text) {
 					return;
 				}

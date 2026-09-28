@@ -21,10 +21,16 @@ final class HotKeyManager {
   private var eventTap: CFMachPort?
   private var runLoopSource: CFRunLoopSource?
   private var capsLockMappingApplied = false
+  private var recoveryObservers: [NSObjectProtocol] = []
 
   static public let shared = HotKeyManager()
 
   private init() {
+    let center = NSWorkspace.shared.notificationCenter
+    for name in [NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification] {
+      recoveryObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.recoverEventTap() })
+    }
+    recoveryObservers.append(NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.recoverEventTap() })
     NSEvent.addLocalMonitorForEvents(matching: .keyDown) {
       if $0.modifierFlags.contains(.command) && $0.keyCode == 43 {
         SolEmitter.sharedInstance.onShow(target: "SETTINGS")
@@ -161,6 +167,7 @@ final class HotKeyManager {
   }
 
   deinit {
+    recoveryObservers.forEach { NotificationCenter.default.removeObserver($0); NSWorkspace.shared.notificationCenter.removeObserver($0) }
     if capsLockMappingApplied {
       resetCapsLockMapping()
     }
@@ -264,6 +271,7 @@ final class HotKeyManager {
   }
 
   func resetCapsLockMonitoring() {
+    clearHeldState()
     // Only touch hidutil if Sol itself applied the mapping. Otherwise this
     // would clobber a user's own hidutil configuration (e.g. custom
     // Vim/tmux bindings) every time this is called, even when the Hyper
@@ -276,9 +284,14 @@ final class HotKeyManager {
       CGEvent.tapEnable(tap: eventTap, enable: false)
       CFMachPortInvalidate(eventTap)
     }
+    eventTap = nil
+    if let source = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+    runLoopSource = nil
   }
 
   func setupCapsLockMonitoring() {
+    if let eventTap, CFMachPortIsValid(eventTap) { clearHeldState(); CGEvent.tapEnable(tap: eventTap, enable: true); return }
+    clearHeldState()
     let mask =
       (1 << CGEventType.keyDown.rawValue)
       | (1 << CGEventType.keyUp.rawValue)
@@ -314,6 +327,11 @@ final class HotKeyManager {
   )
     -> Unmanaged<CGEvent>?
   {
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+      clearHeldState()
+      if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+      return Unmanaged.passUnretained(event)
+    }
     if type == .keyDown || type == .keyUp {
       let code = UInt8(event.getIntegerValueField(.keyboardEventKeycode))
       if code == UInt8(kVK_F18) {
@@ -326,12 +344,27 @@ final class HotKeyManager {
       }
     }
 
+    if f18Down && !CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_F18)) {
+      clearHeldState()
+    }
+
     // Long press is ALWAYS hyperkey - apply hyperkey modifiers when F18 is held
     if f18Down {
       return handleHyperKeyModifiers(type: type, event: event)
     }
 
     return Unmanaged.passUnretained(event)
+  }
+
+  private func clearHeldState() {
+    f18Down = false
+    shiftPressed = false
+    controlPressed = false
+  }
+
+  private func recoverEventTap() {
+    clearHeldState()
+    if let eventTap, CFMachPortIsValid(eventTap) { CGEvent.tapEnable(tap: eventTap, enable: true) }
   }
 
   private func handleHyperKeyModifiers(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {

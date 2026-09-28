@@ -18,6 +18,12 @@ final class AIProcess {
     "-p", "--safe-mode", "--tools", "", "--strict-mcp-config",
     "--permission-prompts", "none", "--no-session-persistence", "--output-format", "json",
   ]
+  // These flags are covered by synthetic invocation tests, not a live provider probe.
+  static let claudeStreamingArguments = [
+    "-p", "--safe-mode", "--tools", "", "--strict-mcp-config",
+    "--permission-prompts", "none", "--no-session-persistence", "--output-format", "stream-json",
+    "--verbose", "--include-partial-messages",
+  ]
   private let lock = NSLock()
   private var active: [String: Run] = [:]
 
@@ -66,6 +72,8 @@ final class AIProcess {
   }
 
   func run(id: String, prompt: String, executable: URL, arguments: [String], timeout: TimeInterval = 120,
+           currentDirectory: URL = FileManager.default.temporaryDirectory,
+           onChunk: ((Data) -> Void)? = nil,
            beforeLaunch: (() -> Void)? = nil,
            completion: @escaping (Result<String, AIProcessError>) -> Void) {
     guard !id.isEmpty, !prompt.isEmpty, prompt.utf8.count <= 128_000 else {
@@ -90,7 +98,7 @@ final class AIProcess {
       let errors = Pipe()
       process.executableURL = executable
       process.arguments = arguments
-      process.currentDirectoryURL = FileManager.default.temporaryDirectory
+      process.currentDirectoryURL = currentDirectory
       process.standardInput = input
       process.standardOutput = output
       process.standardError = errors
@@ -124,6 +132,7 @@ final class AIProcess {
           if isError { stderrCount = min(Self.outputLimit + 1, stderrCount + count) }
           else if stdout.count <= Self.outputLimit {
             stdout.append(contentsOf: buffer.prefix(min(count, Self.outputLimit + 1 - stdout.count)))
+            onChunk?(Data(buffer.prefix(count)))
           }
           let exceeded = stdout.count > Self.outputLimit || stderrCount > Self.outputLimit
           dataLock.unlock()
@@ -199,7 +208,10 @@ final class AIProcess {
           let count = Darwin.read(fd, &buffer, buffer.count)
           if count <= 0 { break }  // EOF or EAGAIN (descendant still holds the pipe).
           if isError { stderrCount = min(Self.outputLimit + 1, stderrCount + count) }
-          else { stdout.append(contentsOf: buffer.prefix(min(count, Self.outputLimit + 1 - stdout.count))) }
+          else {
+            stdout.append(contentsOf: buffer.prefix(min(count, Self.outputLimit + 1 - stdout.count)))
+            onChunk?(Data(buffer.prefix(count)))
+          }
         }
       }
       drainAvailable(output, isError: false)

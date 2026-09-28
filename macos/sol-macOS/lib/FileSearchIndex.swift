@@ -1,5 +1,5 @@
 import Foundation
-import SQLite3
+import SQLCipher
 
 let SQLITE_TRANSIENT = unsafeBitCast(-1 as Int, to: sqlite3_destructor_type?.self)
 
@@ -17,22 +17,25 @@ class FileSearchIndex {
   private let queue = DispatchQueue(label: "com.ospfranco.sol.filesearch.index")
   
   init() {
-    let paths = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)
-    let appSupportDir = paths[0]
-    let solDir = (appSupportDir as NSString).appendingPathComponent("Sol")
-    
-    // Create directory if it doesn't exist
-    try? FileManager.default.createDirectory(atPath: solDir, withIntermediateDirectories: true)
-    
-    self.dbPath = (solDir as NSString).appendingPathComponent("filesearch.db")
+    self.dbPath = LocalVault.vaultDirectory().appendingPathComponent("filesearch.db").path
     
     self.initializeDatabase()
   }
   
   private func initializeDatabase() {
     var db: OpaquePointer?
-    if sqlite3_open(dbPath, &db) == SQLITE_OK {
+    guard let key = try? LocalVault.key(), key.count == 32 else { return }
+    do { try FileManager.default.createDirectory(at: LocalVault.vaultDirectory(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) } catch { return }
+    if sqlite3_open(dbPath, &db) == SQLITE_OK,
+       key.withUnsafeBytes({ sqlite3_key(db, $0.baseAddress, Int32($0.count)) }) == SQLITE_OK {
       self.db = db
+      var verification: OpaquePointer?
+      guard sqlite3_prepare_v2(db, "PRAGMA cipher_version", -1, &verification, nil) == SQLITE_OK,
+            sqlite3_step(verification) == SQLITE_ROW,
+            sqlite3_column_text(verification, 0) != nil else { sqlite3_finalize(verification); sqlite3_close(db); self.db = nil; return }
+      sqlite3_finalize(verification)
+      guard sqlite3_exec(db, "SELECT count(*) FROM sqlite_master; PRAGMA temp_store=MEMORY;", nil, nil, nil) == SQLITE_OK else { sqlite3_close(db); self.db = nil; return }
+      sqlite3_exec(db, "PRAGMA cipher_memory_security=ON;", nil, nil, nil)
       
       let createTableSQL = """
         CREATE TABLE IF NOT EXISTS files (
