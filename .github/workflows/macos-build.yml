@@ -83,7 +83,6 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM= \
             CODE_SIGN_IDENTITY=- \
-            'CODE_SIGN_IDENTITY[sdk=macosx*]=-' \
             PROVISIONING_PROFILE_SPECIFIER= \
             ENABLE_HARDENED_RUNTIME=NO \
             build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*(sign|bundle)|\*\* BUILD|^Ld |CodeSign |PhaseScript" || true
