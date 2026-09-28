@@ -22,3 +22,9 @@ This repository was intentionally reset after the Bettercast/Sol experiment. The
 - If a new native Mac app is chosen, use a hosted macOS build loop until an actual Mac with full Xcode is available. The connected Mac previously had Command Line Tools only; it could run source tests but not compile this app.
 - Prefer a normal, agent-discoverable editing/settings surface; treat any transient launcher panel as a separate interaction to verify. The worksheet records Adam's final choice—do not infer it from this suggestion.
 - Keep this file short and decision-changing. Put transient status in the work discussion, not here. Adam's current request and his answers in the worksheet override earlier recommendations.
+
+<!-- Adam’s answers: start -->
+## Adam’s answers (selected, not inferred)
+
+- **How should we choose the next app’s foundation?** C — Native SDK (Zig + compiled TypeScript)
+<!-- Adam’s answers: end -->

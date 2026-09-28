@@ -39,6 +39,7 @@ const status = document.querySelector('#status')
 const progress = document.querySelector('#progress')
 const notes = document.querySelector('#notes')
 const answers = {}
+const customAnswers = {}
 let version = ''
 let savedText = ''
 const begin = '<!-- Adam’s answers: start -->'
@@ -60,6 +61,7 @@ function renderQuestions() {
       input.value = String(position)
       input.addEventListener('change', () => {
         answers[question.id] = position
+        card.querySelector('.clear-choice').hidden = false
         updateDraft()
       })
       const content = document.createElement('span')
@@ -85,21 +87,50 @@ function renderQuestions() {
       options.append(label)
     })
     card.append(options)
+    const customLabel = document.createElement('label')
+    customLabel.className = 'custom-label'
+    customLabel.htmlFor = `custom-${question.id}`
+    customLabel.textContent = 'Your own answer / note'
+    const customField = document.createElement('textarea')
+    customField.id = `custom-${question.id}`
+    customField.className = 'custom-answer'
+    customField.rows = 2
+    customField.placeholder = 'Write your own answer, or add a note to a choice…'
+    customField.addEventListener('input', () => {
+      customAnswers[question.id] = customField.value
+      updateDraft()
+    })
+    const clearChoice = document.createElement('button')
+    clearChoice.type = 'button'
+    clearChoice.className = 'clear-choice'
+    clearChoice.textContent = 'Clear A–D choice; use only my words'
+    clearChoice.hidden = true
+    clearChoice.addEventListener('click', () => {
+      const selected = card.querySelector('input:checked')
+      if (selected) selected.checked = false
+      delete answers[question.id]
+      clearChoice.hidden = true
+      updateDraft()
+      customField.focus()
+    })
+    card.append(customLabel, customField, clearChoice)
     list.append(card)
   }
 }
 
 function answerText() {
-  const lines = questions.filter(q => answers[q.id] !== undefined).map(q => {
-    const answer = q.choices[answers[q.id]]
-    return `- **${q.title}** ${'ABCD'[answers[q.id]]} — ${answer}`
+  const lines = questions.filter(q => answers[q.id] !== undefined || customAnswers[q.id]?.trim()).map(q => {
+    const custom = customAnswers[q.id]?.trim().replace(/\s+/g, ' ')
+    if (answers[q.id] === undefined) return `- **${q.title}** My answer — ${custom}`
+    const choice = `${'ABCD'[answers[q.id]]} — ${q.choices[answers[q.id]]}`
+    return `- **${q.title}** ${choice}${custom ? ` · **My note:** ${custom}` : ''}`
   })
   if (notes.value.trim()) lines.push(`- **Anything else:** ${notes.value.trim().replace(/\s+/g, ' ')}`)
   return lines.length ? `## Adam’s answers (selected, not inferred)\n\n${lines.join('\n')}` : ''
 }
 
 function updateDraft() {
-  progress.textContent = `${Object.keys(answers).length} of ${questions.length} answered`
+  progress.textContent = `${questions.filter(q => answers[q.id] !== undefined || customAnswers[q.id]?.trim()).length} of ${questions.length} answered`
   if (!version) return
   const current = editor.value
   const start = current.indexOf(begin)
@@ -117,6 +148,34 @@ function setStatus(message, error = false) {
   status.classList.toggle('error', error)
 }
 
+function restoreAnswers(text) {
+  const start = text.indexOf(begin)
+  const finish = text.indexOf(end, start + begin.length)
+  if (start < 0 || finish < start) return
+  const block = text.slice(start + begin.length, finish)
+  for (const question of questions) {
+    const line = block.split('\n').find(row => row.startsWith(`- **${question.title}** `))
+    if (!line) continue
+    const value = line.slice(`- **${question.title}** `.length)
+    const choice = /^([ABCD]) — /.exec(value)
+    if (choice) {
+      const index = 'ABCD'.indexOf(choice[1])
+      if (value.slice(choice[0].length).startsWith(question.choices[index])) {
+        answers[question.id] = index
+        document.querySelector(`input[name="${question.id}"][value="${index}"]`).checked = true
+        document.querySelector(`#custom-${question.id}`).parentElement.querySelector('.clear-choice').hidden = false
+      }
+      customAnswers[question.id] = value.split(' · **My note:** ')[1] || ''
+    } else if (value.startsWith('My answer — ')) {
+      customAnswers[question.id] = value.slice('My answer — '.length)
+    }
+    document.querySelector(`#custom-${question.id}`).value = customAnswers[question.id] || ''
+  }
+  const general = block.split('\n').find(row => row.startsWith('- **Anything else:** '))
+  if (general) notes.value = general.slice('- **Anything else:** '.length)
+  progress.textContent = `${questions.filter(q => answers[q.id] !== undefined || customAnswers[q.id]?.trim()).length} of ${questions.length} answered`
+}
+
 renderQuestions()
 notes.addEventListener('input', updateDraft)
 fetch('/api/document').then(async response => {
@@ -125,8 +184,8 @@ fetch('/api/document').then(async response => {
   editor.value = data.text
   savedText = data.text
   version = data.version
+  restoreAnswers(data.text)
   setStatus('Ready. Pick only the answers you mean.')
-  if (Object.keys(answers).length || notes.value.trim()) updateDraft()
 }).catch(error => setStatus(error.message, true))
 
 document.querySelector('#copy').addEventListener('click', async () => {
