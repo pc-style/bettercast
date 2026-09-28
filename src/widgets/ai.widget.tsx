@@ -55,10 +55,20 @@ const Chip: FC<{ label: string; on?: boolean; disabled?: boolean; onPress: () =>
 
 const HistoryOverlay: FC<{ ai: AIContract; now: number; onClose: () => void }> = observer(({ ai, now, onClose }) => {
 	const [index, setIndex] = useState(0);
+	const { ui } = useStore();
+	const deleteSelected = (id: string) => ui.confirm(
+		"Delete this conversation and its local history?",
+		() => void ai.deleteConversation?.(id).then(() =>
+			setIndex(i => Math.min(i, Math.max(0, ai.conversations.length - 1))),
+		).catch(() => {}),
+	);
 	useNativeKeyCapture({ enter: true, vertical: true });
 	useKeyHandler(({ keyCode, meta }) => {
 		if (keyCode === KEY.DOWN || keyCode === KEY.UP) {
 			setIndex(i => moveSelection(i, keyCode === KEY.DOWN ? 1 : -1, ai.conversations.length));
+		} else if (keyCode === KEY.DELETE && meta && ai.deleteConversation) {
+			const c = ai.conversations[index];
+			if (c) deleteSelected(c.id);
 		} else if (keyCode === KEY.ENTER) {
 			const c = ai.conversations[index];
 			if (c) void ai.loadConversation(c.id);
@@ -71,7 +81,7 @@ const HistoryOverlay: FC<{ ai: AIContract; now: number; onClose: () => void }> =
 	return (
 		<View className="absolute top-0 bottom-0 left-0 right-0 bg-black/20 items-center pt-12">
 			<View className="w-[380px] max-h-[320px] rounded-xl border border-window bg-white dark:bg-neutral-800 shadow-lg overflow-hidden">
-				<Text className="darker-text text-xxs font-semibold uppercase px-3 pt-2">History · on this Mac</Text>
+				<Text className="darker-text text-xxs font-semibold uppercase px-3 pt-2">History · on this Mac · ⌘⌫ delete</Text>
 				<ConversationList
 					conversations={ai.conversations}
 					activeId={ai.conversationId}
@@ -81,6 +91,7 @@ const HistoryOverlay: FC<{ ai: AIContract; now: number; onClose: () => void }> =
 						void ai.loadConversation(id);
 						onClose();
 					}}
+						onDelete={ai.deleteConversation ? deleteSelected : undefined}
 				/>
 			</View>
 		</View>
@@ -304,6 +315,10 @@ const AIView: FC<{ ai: AIContract; expanded: boolean }> = observer(({ ai, expand
 							activeId={ai.conversationId}
 							now={now}
 							onOpen={id => void ai.loadConversation(id)}
+							onDelete={ai.deleteConversation ? id => ui.confirm(
+								"Delete this conversation and its local history?",
+								() => void ai.deleteConversation?.(id).catch(() => {}),
+							) : undefined}
 						/>
 					</View>
 				)}

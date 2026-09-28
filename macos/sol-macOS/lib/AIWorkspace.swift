@@ -223,6 +223,13 @@ enum LocalVault {
     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
   }
 
+  static func delete(id: String, directory: URL = vaultDirectory()) throws {
+    let url = try documentURL(id: id, directory: directory)
+    if FileManager.default.fileExists(atPath: url.path) {
+      try FileManager.default.removeItem(at: url)
+    }
+  }
+
   static func vaultDirectory(base: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
     base.appendingPathComponent(".config/bettercast/vault-v1", isDirectory: true)
   }

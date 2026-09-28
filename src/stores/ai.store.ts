@@ -683,6 +683,7 @@ export function createAIStore(root: IRootStore) {
 		async loadConversation(id: string) {
 			if (store.busy) return;
 			const raw = await solNative.workspaceRequest({ op: "readDocument", id });
+			if (store.busy || !store.conversations.some((item) => item.id === id)) return;
 			if (!raw) throw new Error("Conversation not found");
 			const saved = JSON.parse(raw);
 			if (saved.version !== 1) throw new Error("Unsupported conversation");
@@ -696,6 +697,49 @@ export function createAIStore(root: IRootStore) {
 				store.conversationId = id;
 				store.messages = saved.messages;
 			});
+		},
+		async deleteConversation(id: string) {
+			if (!store.initialized) throw new Error("AI storage unavailable");
+			if (sending || store.busy) throw new Error("Stop the current request before deleting a conversation");
+			if (!store.conversations.some((item) => item.id === id))
+				throw new Error("Conversation not found");
+			const previous = {
+				conversations: toJS(store.conversations),
+				conversationId: store.conversationId,
+				messages: toJS(store.messages),
+				history,
+				lastRequest,
+				attachmentContents,
+			};
+			store.busy = true;
+			store.conversations = store.conversations.filter((item) => item.id !== id);
+			if (store.conversationId === id) {
+				store.conversationId = null;
+				store.messages = [];
+				history = [];
+				lastRequest = [];
+				attachmentContents = selectContents(new Set(store.draft.attachments.map((item) => item.id)));
+			}
+			try {
+				// Persist the index before removing the payload; pending older saves
+				// complete first so they cannot recreate a deleted document.
+				await persist();
+				await solNative.workspaceRequest({ op: "deleteDocument", id });
+			} catch (error) {
+				runInAction(() => {
+					store.conversations = previous.conversations;
+					store.conversationId = previous.conversationId;
+					store.messages = previous.messages;
+					history = previous.history;
+					lastRequest = previous.lastRequest;
+					attachmentContents = previous.attachmentContents;
+					store.error = `Could not delete conversation: ${String(error)}`;
+				});
+				await persist().catch(() => {});
+				throw error;
+			} finally {
+				store.busy = false;
+			}
 		},
 		async insert(
 			messageId: string,

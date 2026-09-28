@@ -5,6 +5,7 @@ const listeners = new Set();
 let calls = [],
 	failRead = false,
 	failHTTP = false,
+	failDelete = false,
 	removeCount = 0;
 let beforeWrite;
 const native = {
@@ -39,6 +40,11 @@ const native = {
 		if (request.op === "writeDocument") {
 			await beforeWrite?.(request);
 			documents.set(request.id, request.value);
+			return;
+		}
+		if (request.op === "deleteDocument") {
+			if (failDelete) throw new Error("Vault deletion unavailable");
+			documents.delete(request.id);
 			return;
 		}
 		if (request.op === "attachment")
@@ -90,6 +96,7 @@ beforeEach(() => {
 	listeners.clear();
 	failRead = false;
 	failHTTP = false;
+	failDelete = false;
 	removeCount = 0;
 	beforeWrite = undefined;
 });
@@ -116,6 +123,74 @@ test("concurrent send dispatches once and accepts trailing CLI JSON without newl
 	expect(ai.busy).toBe(false);
 	expect(ai.draft.text).toBe("");
 	expect(listeners.size).toBe(0);
+});
+test("deleting an active conversation removes its encrypted document and saved index", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "synthetic input" });
+	await ai.send();
+	const id = ai.conversationId;
+	expect(documents.has(id)).toBe(true);
+	ai.setDraft({ text: "unsent draft survives" });
+	await ai.deleteConversation(id);
+	expect(documents.has(id)).toBe(false);
+	expect(ai.conversations).toEqual([]);
+	expect(ai.messages).toEqual([]);
+	expect(ai.draft.text).toBe("unsent draft survives");
+	const reopened = make();
+	await reopened.initialize();
+	expect(reopened.conversations).toEqual([]);
+	expect(reopened.draft.text).toBe("unsent draft survives");
+});
+test("deleting an older conversation keeps the active chat intact", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "older synthetic chat" });
+	await ai.send();
+	const older = ai.conversationId;
+	ai.newConversation();
+	ai.setDraft({ text: "active synthetic chat" });
+	await ai.send();
+	const active = ai.conversationId;
+	await ai.deleteConversation(older);
+	expect(documents.has(older)).toBe(false);
+	expect(documents.has(active)).toBe(true);
+	expect(ai.conversationId).toBe(active);
+	expect(ai.messages[0].blocks[0].text).toBe("active synthetic chat");
+	expect(ai.conversations.map(c => c.id)).toEqual([active]);
+});
+test("deletion failure preserves the conversation and its messages", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "keep synthetic history" });
+	await ai.send();
+	const id = ai.conversationId;
+	failDelete = true;
+	await expect(ai.deleteConversation(id)).rejects.toThrow("Vault deletion unavailable");
+	expect(ai.conversations.map(c => c.id)).toEqual([id]);
+	expect(ai.messages[1].blocks[0].text).toBe("synthetic response");
+	expect(documents.has(id)).toBe(true);
+	expect(JSON.parse(documents.get("ai-index")).conversations[0].id).toBe(id);
+	expect(ai.error).toContain("Could not delete conversation");
+});
+test("index write failure never deletes a conversation document", async () => {
+	const ai = make();
+	await ai.initialize();
+	ai.setDraft({ text: "keep if index fails" });
+	await ai.send();
+	const id = ai.conversationId;
+	let failOnce = true;
+	beforeWrite = request => {
+		if (request.id === "ai-index" && failOnce) {
+			failOnce = false;
+			throw new Error("Index unavailable");
+		}
+	};
+	await expect(ai.deleteConversation(id)).rejects.toThrow("Index unavailable");
+	expect(calls.some(r => r.op === "deleteDocument")).toBe(false);
+	expect(documents.has(id)).toBe(true);
+	expect(ai.conversations.map(c => c.id)).toEqual([id]);
+	expect(JSON.parse(documents.get("ai-index")).conversations[0].id).toBe(id);
 });
 test("unreadable encrypted state never enables writes or sends", async () => {
 	failRead = true;

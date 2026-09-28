@@ -47,6 +47,18 @@ import Darwin
     do { _ = try LocalVault.open(Data(encrypted.dropLast()), key: key); fatalError("corrupt vault accepted") } catch { }
     do { _ = try LocalVault.documentURL(id: "../bad", directory: temporary); fatalError("bad id accepted") } catch { }
 
+    let vault = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: vault) }
+    let document = try LocalVault.documentURL(id: "conversation-1", directory: vault)
+    try encrypted.write(to: document)
+    do { try LocalVault.delete(id: "../bad", directory: vault); fatalError("bad deletion id accepted") }
+    catch AIWorkspaceError.invalidRequest { }
+    precondition(FileManager.default.fileExists(atPath: document.path))
+    try LocalVault.delete(id: "conversation-1", directory: vault)
+    precondition(!FileManager.default.fileExists(atPath: document.path))
+    try LocalVault.delete(id: "conversation-1", directory: vault)
+
     let executable = URL(fileURLWithPath: CommandLine.arguments[0])
     try AIWorkspace.openStdioSession(id: "rpc", executable: executable, arguments: ["rpc"], maxOutputBytes: 512_000)
     defer { AIWorkspace.closeStdioSession(id: "rpc") }

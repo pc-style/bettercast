@@ -7,6 +7,7 @@ Unchecked means not yet accepted as working in the real app. Some tasks already 
 ## Current delivery status (September 28, 2026)
 
 - Snippets can be created, edited, searched by name or content, deleted, and pasted from their screen; launcher search also indexes them. Pasting replaces the system clipboard. Source checks pass, but the new screen and destination focus have not been exercised in a native app.
+- AI history now has a confirmed delete action in compact history and the expanded sidebar. It removes the encrypted conversation document after saving the updated index; synthetic tests cover restart and storage failures. The full conversation and provider/tool journey remains unverified in the app.
 - Existing code covers selective import with preview and rollback, encrypted clipboard storage and queue, confirmed scripts, and an on-demand AI workspace. These remain unchecked below because source tests and a launch smoke are not proof of everyday use.
 - The macOS CI build checks packaging, native storage, a fresh launch, and an onboarded launch. It cannot verify real destination paste, permissions, external provider/tool journeys, or coexistence with the owner's launcher and Hyper/autocomplete setup.
 - Do not enable a global shortcut or login item, import private history, or replace the existing launcher automatically. Section 9 still requires the owner's eventual acceptance and explicit cutover approval.

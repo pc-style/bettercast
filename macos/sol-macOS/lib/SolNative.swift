@@ -279,6 +279,7 @@ class SolNative: RCTEventEmitter {
         case "writeDocument":
           guard let value = request["value"] as? String else { throw AIWorkspaceError.invalidRequest("Missing document") }
           try LocalVault.write(id: id, text: value); resolve([:])
+        case "deleteDocument": try LocalVault.delete(id: id); resolve([:])
         default: throw AIWorkspaceError.invalidRequest("Unknown workspace operation")
         }
       } catch { reject("WORKSPACE_ERROR", "Workspace operation failed: \(error)", nil) }
