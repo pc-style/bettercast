@@ -1,5 +1,6 @@
 import {BackButton} from 'components/BackButton'
 import {solNative} from 'lib/SolNative'
+import {searchSnippets} from 'lib/snippets'
 import {observer} from 'mobx-react-lite'
 import {useEffect, useState} from 'react'
 import {ScrollView, Text, TextInput, TouchableOpacity, View} from 'react-native'
@@ -12,6 +13,8 @@ export const SnippetsWidget = observer(() => {
   const [editing, setEditing] = useState(snippets.editing)
   const [name, setName] = useState(editing?.name ?? '')
   const [body, setBody] = useState(editing?.text ?? '')
+  const [query, setQuery] = useState('')
+  const visible = searchSnippets(snippets.snippets, query)
   useEffect(() => {
     solNative.turnOffEnterListener()
     solNative.turnOffVerticalArrowsListeners()
@@ -74,8 +77,23 @@ export const SnippetsWidget = observer(() => {
           </TouchableOpacity>
         )}
       </View>
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search saved snippets…"
+        accessibilityLabel="Search saved snippets"
+        className="text p-2 subBg rounded-lg border border-color"
+      />
+      <Text className="darker-text text-xs">
+        Pasting a snippet replaces the current clipboard contents.
+      </Text>
       <ScrollView className="flex-1">
-        {snippets.snippets.map(snippet => (
+        {visible.length === 0 && (
+          <Text className="darker-text text-sm py-3">
+            {query.trim() ? 'No matching snippets.' : 'No saved snippets yet.'}
+          </Text>
+        )}
+        {visible.map(snippet => (
           <View
             key={snippet.id}
             className="flex-row items-center gap-3 py-2 border-b border-color"
@@ -83,6 +101,13 @@ export const SnippetsWidget = observer(() => {
             <Text className="text flex-1" numberOfLines={1}>
               {snippet.name}
             </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Paste ${snippet.name}`}
+              onPress={() => solNative.pasteToFrontmostApp(snippet.text)}
+            >
+              <Text className="text-accent">Paste</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
                 setEditing(snippet)

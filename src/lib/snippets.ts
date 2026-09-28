@@ -1,5 +1,14 @@
 export type Snippet = {id: string; name: string; text: string}
 
+export function searchSnippets(snippets: Snippet[], query: string): Snippet[] {
+  const needle = query.trim().toLocaleLowerCase()
+  if (!needle) return snippets
+  return snippets.filter(snippet =>
+    snippet.name.toLocaleLowerCase().includes(needle) ||
+    snippet.text.toLocaleLowerCase().includes(needle),
+  )
+}
+
 export function readSnippets(value: unknown): Snippet[] {
   if (!Array.isArray(value)) return []
   return value.filter(

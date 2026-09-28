@@ -5,6 +5,7 @@ import {
   readSnippets,
   removeSnippet,
   saveSnippet,
+  searchSnippets,
 } from './snippets'
 
 test('snippet CRUD preserves IDs, text and other entries', () => {
@@ -28,6 +29,18 @@ test('snippet CRUD preserves IDs, text and other entries', () => {
       {id: 4, name: 'no', text: 'x'},
     ]),
   ).toEqual([first])
+})
+
+test('snippet search finds names and bodies without changing saved order', () => {
+  const snippets = [
+    {id: 'a', name: 'Invoice', text: 'Send to Warsaw'},
+    {id: 'b', name: 'Warsaw address', text: 'Street 1'},
+    {id: 'c', name: 'Greeting', text: 'Hello'},
+  ]
+  expect(searchSnippets(snippets, ' WARSAW ')).toEqual(snippets.slice(0, 2))
+  expect(searchSnippets(snippets, 'street')).toEqual([snippets[1]])
+  expect(searchSnippets(snippets, 'missing')).toEqual([])
+  expect(searchSnippets(snippets, '  ')).toEqual(snippets)
 })
 
 test('absent state is empty, but corrupt state cannot hydrate as empty snippets', () => {
