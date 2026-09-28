@@ -510,7 +510,10 @@ c_clipboard_text() {
 
 list_files() { find "$DATA_DIR/clips" -maxdepth 1 -type f -name "$1" 2>/dev/null | sort; }
 count_files() { list_files "$1" | wc -l | tr -d ' '; }
-png_added() { [[ "$(count_files '*.png')" -gt "$(wc -l < "$STATE/png-before.txt")" ]]; }
+# Original image clips only: `<sha>.thumb.png` thumbnails are counted separately.
+list_images() { list_files '*.png' | grep -v '[.]thumb[.]png$' || true; }
+count_images() { list_images | wc -l | tr -d ' '; }
+png_added() { [[ "$(count_images)" -gt "$(wc -l < "$STATE/png-before.txt")" ]]; }
 
 c_clipboard_concealed() {
   local before after
@@ -530,24 +533,39 @@ c_clipboard_concealed() {
 }
 
 c_clipboard_image() {
-  local img="$STATE/e2e-image.png" before after first sha
+  local img="$STATE/e2e-image.png" before after thumbs_before thumbs_after first name thumb bytes_sha
   T make-png "$img" 1280 720
-  list_files '*.png' > "$STATE/png-before.txt"
+  list_images > "$STATE/png-before.txt"
   before="$(wc -l < "$STATE/png-before.txt" | tr -d ' ')"
+  thumbs_before="$(count_files '*.thumb.png')"
   T pb-image "$img"
   wait_for 10 png_added || fail "no PNG clip written"
-  first="$(list_files '*.png' | comm -13 "$STATE/png-before.txt" - | head -n 1)"
-  sha="$(shasum -a 256 "$first" | cut -d' ' -f1)"
-  [[ "$(basename "$first" .png)" == "$sha" ]] || fail "stored name $(basename "$first") is not the sha256 of its bytes ($sha)"
-  file "$first" | grep -q 'PNG image data' || fail "stored clip is not a PNG: $(file "$first")"
-  ev "image stored once as $(basename "$first") ($(file -b "$first"))"
+  first="$(list_images | comm -13 "$STATE/png-before.txt" - | head -n 1)"
+  name="$(basename "$first" .png)"
+  # The name is the helper's pixel hash (dimensions + sRGB RGBA8 pixels), not
+  # a hash of the container bytes; it must still be 64 lowercase hex.
+  [[ "$name" =~ ^[0-9a-f]{64}$ ]] || fail "stored name $name is not a 64-hex sha256"
+  [[ "$(file -b "$first")" == "PNG image data, 1280 x 720"* ]] || fail "stored clip is not a 1280x720 PNG: $(file "$first")"
+  thumb="$DATA_DIR/clips/$name.thumb.png"
+  wait_for 5 test -f "$thumb" || fail "no thumbnail $name.thumb.png next to the clip"
+  [[ "$(file -b "$thumb")" == "PNG image data, 256 x 144"* ]] || fail "thumbnail is not a 256x144 PNG: $(file "$thumb")"
+  bytes_sha="$(shasum -a 256 "$first" | cut -d' ' -f1)"
+  ev "image stored once as $name.png ($(file -b "$first")) + thumbnail ($(file -b "$thumb"))"
   T pb-text "e2e spacer between images"
   sleep 1
   T pb-image "$img"
   sleep 2
-  after="$(count_files '*.png')"
-  [[ "$after" -eq $((before + 1)) ]] || fail "dedupe: expected $((before + 1)) PNG files, found $after"
-  ev "same image twice -> one file (png files: $after)"
+  T pb-text "e2e second spacer between images"
+  sleep 1
+  # Same pixels in a different container (TIFF only) must land on the same file.
+  T pb-image "$img" --tiff-only
+  sleep 2
+  after="$(count_images)"
+  thumbs_after="$(count_files '*.thumb.png')"
+  [[ "$after" -eq $((before + 1)) ]] || fail "dedupe: expected $((before + 1)) image PNG files, found $after: $(list_images | xargs -n1 basename | tr '\n' ' ')"
+  [[ "$thumbs_after" -eq $((thumbs_before + 1)) ]] || fail "dedupe: expected $((thumbs_before + 1)) thumbnails, found $thumbs_after"
+  [[ "$(shasum -a 256 "$first" | cut -d' ' -f1)" == "$bytes_sha" ]] || fail "stored PNG was rewritten by a later copy"
+  ev "same image three times (PNG+TIFF twice, TIFF only once) -> one file, one thumbnail, bytes unchanged (images: $after)"
   local sizes
   sizes="$(T tiff-size "$first")"
   echo "$sizes" > "$OUT/image-bytes.json"

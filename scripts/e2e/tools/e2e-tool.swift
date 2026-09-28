@@ -24,7 +24,7 @@ func usage() -> Never {
       key <chord> [repeat]              post a key chord via CGEvent (opt+space, cmd+k, ctrl+cmd+v, tab, shift+tab, escape, return, down, up)
       type <text>                       type unicode text via CGEvent
       pb-text <text> [--concealed|--transient]
-      pb-image <png>                    put PNG + TIFF representations on the pasteboard (like a screenshot copy)
+      pb-image <png> [--tiff-only]      put PNG + TIFF representations on the pasteboard (like a screenshot copy); --tiff-only = TIFF alone
       pb-types                          list current pasteboard types
       make-png <out> <w> <h>            deterministic asymmetric RGBA test image
       tiff-size <png>                   png/tiff byte sizes for the same pixels
@@ -294,11 +294,12 @@ case "pb-image":
     guard let tiff = rep.tiffRepresentation else { die("TIFF encode failed") }
     let pb = NSPasteboard.general
     pb.clearContents()
+    let tiffOnly = args.contains("--tiff-only")
     let item = NSPasteboardItem()
-    item.setData(png, forType: .png)
+    if !tiffOnly { item.setData(png, forType: .png) }
     item.setData(tiff, forType: .tiff)
     guard pb.writeObjects([item]) else { die("pasteboard write failed") }
-    out("pasteboard image png=\(png.count) tiff=\(tiff.count) changeCount=\(pb.changeCount)")
+    out("pasteboard image png=\(tiffOnly ? 0 : png.count) tiff=\(tiff.count) changeCount=\(pb.changeCount)")
 
 case "pb-types":
     let pb = NSPasteboard.general
