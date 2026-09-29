@@ -44,6 +44,7 @@ jobs:
         run: |
           echo "E2E_OUT=$RUNNER_TEMP/e2e-out" >> "$GITHUB_ENV"
           echo "PKG_DIR=$GITHUB_WORKSPACE/app/zig-out/package" >> "$GITHUB_ENV"
+          echo "REL_DIR=$GITHUB_WORKSPACE/app/zig-out/release" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/e2e-out/logs"
           sw_vers; uname -m; echo "image: ${ImageOS:-?} ${ImageVersion:-?}"; csrutil status || true
 
@@ -103,11 +104,6 @@ jobs:
           scripts/e2e/check.sh package scripts/package-app.sh "$PKG_DIR" --dmg
           test -x "$PKG_DIR/Bettercast.app/Contents/Resources/assets/bin/bettercast-helper" || {
             echo "helper missing from the bundle"; find "$PKG_DIR/Bettercast.app/Contents/Resources" -maxdepth 3 | head -50; exit 1; }
-          dmg="$(find "$PKG_DIR" -maxdepth 1 -name '*.dmg' | head -n 1)"
-          test -n "$dmg"
-          ditto -c -k --keepParent "$PKG_DIR/Bettercast.app" "$PKG_DIR/Bettercast.app.zip"
-          cp scripts/install.sh "$PKG_DIR/install.sh"
-          echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
           ls -la "$PKG_DIR"
 
       - name: Build e2e tool
@@ -135,16 +131,32 @@ jobs:
         continue-on-error: true
         run: scripts/e2e/run-all.sh "$PKG_DIR/Bettercast.app" "$E2E_OUT"
 
-      - name: Real launch (no test mode, stays running)
+      # The automation build writes to .zig-cache/ under its working
+      # directory, which is / (read-only) when Finder launches it, so the
+      # download is a separate release build of the same commit.
+      - name: Build + package release app (no automation, the download)
+        if: always()
+        run: |
+          set -euo pipefail
+          scripts/e2e/check.sh build_release bash -c 'cd app && native build'
+          scripts/e2e/check.sh package_release scripts/package-app.sh "$REL_DIR" --dmg
+          dmg="$(find "$REL_DIR" -maxdepth 1 -name '*.dmg' | head -n 1)"
+          test -n "$dmg"
+          ditto -c -k --keepParent "$REL_DIR/Bettercast.app" "$REL_DIR/Bettercast.app.zip"
+          cp scripts/install.sh "$REL_DIR/install.sh"
+          echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
+          ls -la "$REL_DIR"
+
+      - name: Real launch of the release app from / (no test mode, stays running)
         if: always()
         continue-on-error: true
-        run: scripts/e2e/check.sh real_launch scripts/e2e/real-launch.sh "$PKG_DIR/Bettercast.app" "$E2E_OUT/real-launch"
+        run: scripts/e2e/check.sh real_launch scripts/e2e/real-launch.sh "$REL_DIR/Bettercast.app" "$E2E_OUT/real-launch"
 
       - name: Write manifest
         if: always()
         run: |
-          scripts/e2e/write-manifest.sh "$E2E_OUT" "${DMG_PATH:-}" "$PKG_DIR/Bettercast.app.zip"
-          cp "$E2E_OUT/manifest.json" "$PKG_DIR/manifest.json" 2>/dev/null || true
+          scripts/e2e/write-manifest.sh "$E2E_OUT" "${DMG_PATH:-}" "$REL_DIR/Bettercast.app.zip"
+          cp "$E2E_OUT/manifest.json" "$REL_DIR/manifest.json" 2>/dev/null || true
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json, os
           m = json.load(open(os.path.join(os.environ["E2E_OUT"], "manifest.json")))
@@ -162,10 +174,10 @@ jobs:
           name: bettercast-app-${{ github.sha }}
           if-no-files-found: warn
           path: |
-            app/zig-out/package/*.dmg
-            app/zig-out/package/Bettercast.app.zip
-            app/zig-out/package/manifest.json
-            app/zig-out/package/install.sh
+            app/zig-out/release/*.dmg
+            app/zig-out/release/Bettercast.app.zip
+            app/zig-out/release/manifest.json
+            app/zig-out/release/install.sh
 
       - name: Upload e2e evidence
         if: always()
@@ -194,7 +206,7 @@ jobs:
             launcher_command launcher_hotkey keys_real calculator snippet_create snippet_paste_textedit
             snippet_edit snippet_delete clipboard_text clipboard_concealed clipboard_image_dedupe
             sequential_paste ai_fake hotkey_change ax_tree reference_canvas desktop_capture no_errors
-            real_launch
+            build_release package_release real_launch
         run: |
           # shellcheck source=/dev/null
           source scripts/e2e/lib.sh
