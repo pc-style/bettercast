@@ -106,6 +106,7 @@ jobs:
           dmg="$(find "$PKG_DIR" -maxdepth 1 -name '*.dmg' | head -n 1)"
           test -n "$dmg"
           ditto -c -k --keepParent "$PKG_DIR/Bettercast.app" "$PKG_DIR/Bettercast.app.zip"
+          cp scripts/install.sh "$PKG_DIR/install.sh"
           echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
           ls -la "$PKG_DIR"
 
@@ -149,7 +150,7 @@ jobs:
               print(f"| {c['id']} | {'yes' if c['required'] else 'no'} | {c['status']} | {ev} |")
           PY
 
-      - name: Upload app (DMG, zipped .app, manifest)
+      - name: Upload app (DMG, zipped .app, install script, manifest)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -159,6 +160,7 @@ jobs:
             app/zig-out/package/*.dmg
             app/zig-out/package/Bettercast.app.zip
             app/zig-out/package/manifest.json
+            app/zig-out/package/install.sh
 
       - name: Upload e2e evidence
         if: always()
