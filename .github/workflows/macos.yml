@@ -135,6 +135,11 @@ jobs:
         continue-on-error: true
         run: scripts/e2e/run-all.sh "$PKG_DIR/Bettercast.app" "$E2E_OUT"
 
+      - name: Real launch (no test mode, stays running)
+        if: always()
+        continue-on-error: true
+        run: scripts/e2e/check.sh real_launch scripts/e2e/real-launch.sh "$PKG_DIR/Bettercast.app" "$E2E_OUT/real-launch"
+
       - name: Write manifest
         if: always()
         run: |
@@ -189,6 +194,7 @@ jobs:
             launcher_command launcher_hotkey keys_real calculator snippet_create snippet_paste_textedit
             snippet_edit snippet_delete clipboard_text clipboard_concealed clipboard_image_dedupe
             sequential_paste ai_fake hotkey_change ax_tree reference_canvas desktop_capture no_errors
+            real_launch
         run: |
           # shellcheck source=/dev/null
           source scripts/e2e/lib.sh
